@@ -20,7 +20,7 @@ plugins {
 android {
     namespace = "li.gkd.android"
     defaultConfig {
-        applicationId = "li.songe.gkd"
+        applicationId = "com.birdnofoots.didigkd"   // fork: 与官方 GKD(li.songe.gkd) 并存
         versionCode = rootProject.extra["gkdVersionCode"] as Int
         versionName = rootProject.extra["gkdVersionName"] as String
 
