@@ -1,0 +1,360 @@
+package li.gkd.app.ui.settings
+
+import li.gkd.app.META
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import li.gkd.app.ui.component.gkTopAppBarScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import li.gkd.app.network.AppLinks
+import li.gkd.app.resources.*
+import li.gkd.app.settings.SettingsRepository
+import li.gkd.app.ui.MainViewModel
+import li.gkd.app.ui.component.GkAlertDialog
+import li.gkd.app.ui.component.GkAnimatedBooleanContent
+import li.gkd.app.ui.component.GkIconButton
+import li.gkd.app.ui.component.GkIcons
+import li.gkd.app.ui.component.GkPageBottomSpace
+import li.gkd.app.ui.component.GkPermissionRestrictionDialog
+import li.gkd.app.ui.component.GkScaffold
+import li.gkd.app.ui.component.GkTopAppBar
+import li.gkd.app.ui.home.dashboardPlatformState
+import li.gkd.app.ui.navigation.A11YScopeAppListRoute
+import li.gkd.app.ui.navigation.PrivilegeServiceRoute
+import li.gkd.app.settings.AutomatorMode
+import li.gkd.app.model.findOption
+import li.gkd.app.ui.platform.RefreshPermissions
+import li.gkd.app.ui.platform.UiHost
+import li.gkd.app.ui.platform.changeAutomatorMode
+import li.gkd.app.ui.platform.openA11ySettings
+import li.gkd.app.ui.style.itemHorizontalPadding
+import li.gkd.app.ui.style.surfaceCardColors
+import org.jetbrains.compose.resources.stringResource
+
+@Composable
+fun WorkModePage(host: UiHost) {
+    val mainVm = MainViewModel.requireCurrent()
+    val vm = viewModel { WorkModeViewModel() }
+    RefreshPermissions()
+    val platform = dashboardPlatformState()
+    val store by SettingsRepository.settings.collectAsStateWithLifecycle()
+    val automatorMode: AutomatorMode =
+        AutomatorMode.entries.findOption(store.automatorMode)
+
+    val onPrivilege: () -> Unit = { mainVm.navigator.navigate(PrivilegeServiceRoute) }
+
+    val appName: String = META.appName
+
+    val automationAvailable =
+        platform.privilegeAvailable && platform.privilegeCapabilities?.restricted != true
+    val showPrivilegeRequired by vm.showPrivilegeRequired.collectAsStateWithLifecycle()
+    if (showPrivilegeRequired)
+        GkPermissionRestrictionDialog(
+            privilegeAvailable = platform.privilegeAvailable,
+            capabilities = platform.privilegeCapabilities,
+            appRestrictions = platform.appRestrictions,
+            onDismiss = { vm.setShowPrivilegeRequired(false) },
+            onPrivilege = onPrivilege,
+        )
+    val showKeepAlive by vm.showKeepAlive.collectAsStateWithLifecycle()
+    if (showKeepAlive) {
+        val tutorial =
+            stringResource(Res.string.keep_alive_tile_description, appName) +
+                stringResource(Res.string.keep_alive_setup_heading) +
+                stringResource(Res.string.keep_alive_setup_open_tiles) +
+                stringResource(
+                    Res.string.keep_alive_setup_add_tile,
+                    appName,
+                ) +
+                stringResource(Res.string.keep_alive_setup_place_tile)
+        GkAlertDialog(
+            onDismissRequest = { vm.setShowKeepAlive(false) },
+            title = { Text(stringResource(Res.string.keep_alive_title)) },
+            text = {
+                Text(
+                    tutorial +
+                        if (platform.writeSecureSettings) ""
+                        else
+                            stringResource(Res.string.keep_alive_permission_missing) +
+                                stringResource(Res.string.keep_alive_permission_description)
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.setShowKeepAlive(false)
+                        if (!platform.writeSecureSettings) onPrivilege()
+                    }
+                ) {
+                    Text(
+                        stringResource(
+                            if (platform.writeSecureSettings) Res.string.action_understood
+                            else Res.string.settings_go_to
+                        )
+                    )
+                }
+            },
+            dismissButton =
+                if (platform.writeSecureSettings) null
+                else {
+                    {
+                        TextButton(
+                            onClick = {
+                                vm.setShowKeepAlive(false)
+                            }
+                        ) {
+                            Text(stringResource(Res.string.action_close))
+                        }
+                    }
+                },
+        )
+    }
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    GkScaffold(
+        modifier = Modifier.gkTopAppBarScroll(scrollBehavior),
+        topBar = {
+            GkTopAppBar(
+                scrollBehavior = scrollBehavior,
+                navigationIcon = {
+                    GkIconButton(
+                        imageVector = GkIcons.ArrowBack,
+                        onClick = mainVm.navigator::pop,
+                    )
+                },
+                title = {
+                    Text(text = stringResource(Res.string.work_mode_title))
+                },
+            )
+        },
+    ) { contentPadding ->
+        Column(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(contentPadding)
+        ) {
+            Card(
+                modifier = Modifier.padding(horizontal = itemHorizontalPadding).fillMaxWidth(),
+                onClick = { host.changeAutomatorMode(AutomatorMode.A11y) },
+                colors = surfaceCardColors,
+            ) {
+                Row(
+                    modifier =
+                        Modifier.padding(
+                            start = 20.dp,
+                            top = 16.dp,
+                            end = 20.dp,
+                            bottom = 12.dp,
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = automatorMode == AutomatorMode.A11y,
+                        onClick = null,
+                    )
+                    Text(
+                        modifier = Modifier.padding(start = 12.dp),
+                        text = stringResource(AutomatorMode.A11y.labelResource),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                Text(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    text = stringResource(Res.string.work_mode_basic),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                TextListItem(
+                    modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    list =
+                        listOf(
+                            stringResource(Res.string.a11y_permission_grant),
+                            stringResource(Res.string.a11y_permission_regrant_description),
+                        ),
+                )
+                GkAnimatedBooleanContent(
+                    targetState = platform.writeSecureSettings || platform.a11yRunning,
+                    contentTrue = {},
+                    contentFalse = {
+                        FlowRow(
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .padding(horizontal = 20.dp)
+                                    .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            TextButton(onClick = ::openA11ySettings) {
+                                Text(
+                                    text = stringResource(Res.string.a11y_enable),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                            TextButton(
+                                onClick = { mainVm.navigator.openWebPage(AppLinks.WorkModeHelp) }
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.help_view),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                        }
+                    },
+                )
+                Text(
+                    modifier = Modifier.padding(horizontal = 20.dp).padding(top = 20.dp),
+                    text = stringResource(Res.string.work_mode_enhanced),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                TextListItem(
+                    modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    list =
+                        listOf(
+                            stringResource(Res.string.secure_settings_permission_grant),
+                            stringResource(Res.string.secure_settings_permission_description),
+                        ),
+                )
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (!platform.writeSecureSettings) {
+                        PrivilegeAuthButton(onPrivilege)
+                    }
+                    TextButton(onClick = { vm.setShowKeepAlive(true) }) {
+                        Text(
+                            text = stringResource(Res.string.keep_alive_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                modifier = Modifier.padding(horizontal = itemHorizontalPadding).fillMaxWidth(),
+                onClick = {
+                    if (automationAvailable) {
+                        host.changeAutomatorMode(AutomatorMode.Automation)
+                    } else vm.setShowPrivilegeRequired(true)
+                },
+                colors = surfaceCardColors,
+            ) {
+                Row(
+                    modifier =
+                        Modifier.padding(
+                            start = 20.dp,
+                            top = 16.dp,
+                            end = 20.dp,
+                            bottom = 12.dp,
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = automatorMode == AutomatorMode.Automation,
+                        onClick = null,
+                    )
+                    Text(
+                        modifier = Modifier.padding(start = 12.dp),
+                        text = stringResource(AutomatorMode.Automation.labelResource),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                TextListItem(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    list =
+                        listOf(
+                            stringResource(Res.string.automation_a11y_description),
+                            stringResource(Res.string.automation_no_display_issues),
+                            stringResource(Res.string.automation_undetectable_a11y),
+                            stringResource(Res.string.automation_scope_compatibility_hint),
+                        ),
+                )
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    TextButton(onClick = { mainVm.navigator.navigate(A11YScopeAppListRoute) }) {
+                        Text(
+                            text = stringResource(Res.string.a11y_scoped),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            GkPageBottomSpace()
+        }
+    }
+}
+
+@Composable
+private fun PrivilegeAuthButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextButton(
+        modifier = modifier,
+        onClick = onClick,
+    ) {
+        Text(
+            text = stringResource(Res.string.permission_grant),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+@Composable
+private fun TextListItem(
+    list: List<String>,
+    modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current,
+) {
+    val lineHeightDp = LocalDensity.current.run { style.lineHeight.toDp() }
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        list.forEach { text ->
+            Row {
+                Spacer(
+                    modifier =
+                        Modifier.padding(vertical = (lineHeightDp - 4.dp) / 2)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.tertiary)
+                            .size(4.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = text, style = style)
+            }
+        }
+    }
+}

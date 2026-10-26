@@ -1,0 +1,42 @@
+pluginManagement {
+    repositories {
+        mavenCentral()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        maven("https://jitpack.io")
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
+rootProject.name = "gkd"
+include(
+    ":gkd-android",
+    ":gkd-aidl",
+    ":gkd-app",
+    ":gkd-db",
+    ":gkd-hidden-api",
+    ":gkd-selector",
+)
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        maven("https://jitpack.io")
+    }
+}
