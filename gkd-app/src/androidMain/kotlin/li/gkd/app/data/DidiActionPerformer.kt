@@ -3,7 +3,7 @@ package li.gkd.app.data
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import li.gkd.app.didi.DidiCardExtractor
-import li.gkd.app.didi.flow.DefaultFlow
+import li.gkd.app.didi.flow.FlowLoader
 import li.gkd.app.didi.flow.DidiFlowHost
 import li.gkd.app.didi.flow.FlowEngine
 import li.gkd.app.model.ActionResult
@@ -25,7 +25,6 @@ data object DidiActionPerformer : ActionPerformer("didi") {
     private const val TAG = "DidiGKD"
     private val flowHost = DidiFlowHost()
     private val flowEngine = FlowEngine(flowHost)
-    @Volatile private var flowLoaded = false
 
     override suspend fun perform(
         node: AccessibilityNodeInfo,
@@ -36,9 +35,12 @@ data object DidiActionPerformer : ActionPerformer("didi") {
         val card = DidiCardExtractor.extract(rootNode)
             ?: return ActionResult(action = action, result = false)
 
-        // 确保 flow.js 已加载(首次)
-        if (!flowLoaded) {
-            flowLoaded = flowEngine.load(DefaultFlow.CODE)   // TODO: 热更新从文件读
+        // P3热更新: 每次触发检查外部 flow.js 是否有改动(文件几KB, 读取开销可忽略);
+        //   改了就热重载, 语法错则自动继续用上一版(见 FlowLoader)
+        val flowOk = FlowLoader.ensure(flowEngine)
+        if (!flowOk) {
+            Log.w(TAG, "flow.js 不可用(首次加载失败), 跳过本卡")
+            return ActionResult(action = action, result = false)
         }
 
         // 更新卡片上下文, 交给 flow.js 决策+截图+点击

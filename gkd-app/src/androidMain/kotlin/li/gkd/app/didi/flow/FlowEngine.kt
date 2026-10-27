@@ -39,8 +39,10 @@ class FlowEngine(private val host: FlowHost) {
     var lastError: String = ""
         private set
 
-    /** 加载 flow.js（重新加载 = 热更新） */
+    /** 加载 flow.js（重新加载 = 热更新）。失败时恢复上一版现场(事务性) */
     fun load(code: String): Boolean {
+        // 事务: 先存现场, 加载失败要能回滚(否则坏脚本会污染正在跑的引擎)
+        val prevFn = onCardFn; val prevCx = cx; val prevScope = scope
         return try {
             val c = Context.enter()
             // 默认 languageVersion=1.7 不认 let/const/箭头函数(missing ; before statement #6)
@@ -83,6 +85,8 @@ class FlowEngine(private val host: FlowHost) {
         } catch (e: Throwable) {
             lastError = e.message ?: "flow.js 加载失败"
             android.util.Log.e("DidiGKD", "flow.js 加载失败: $lastError")
+            // 回滚到上一版(若解析失败在 onCard 注册前, 这些本就没变)
+            onCardFn = prevFn; cx = prevCx; scope = prevScope
             false
         }
     }
