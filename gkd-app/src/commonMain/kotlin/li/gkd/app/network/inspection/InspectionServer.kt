@@ -59,6 +59,20 @@ fun Application.configureInspectionServer(
         route("/api") {
             registerSubscriptionRoutes()
             post("/getServerInfo") { call.respond(serverInfo()) }
+            // DidiGKD 开关: POST /api/didi_tap {"enabled":true|false} 切真实点击/影子模式
+            post("/didi_tap") {
+                val en = try { call.receive<Map<String, Boolean>>()["enabled"] ?: true } catch (e: Exception) { true }
+                li.gkd.app.didi.DidiConfig.tapEnabled.value = en
+                call.respond(mapOf("tap_enabled" to li.gkd.app.didi.DidiConfig.tapEnabled.value))
+            }
+            // DidiGKD 存档清理: POST /api/didi_cleanup {"days":30} 或 {"before":"2026-10-01"}
+            post("/didi_cleanup") {
+                val body = try { call.receive<Map<String, String>>() } catch (e: Exception) { emptyMap() }
+                val days = body["days"]?.toIntOrNull()
+                val before = body["before"]
+                val msg = li.gkd.app.didi.DidiCleaner.cleanup(days, before)
+                call.respond(mapOf("result" to msg))
+            }
             post("/getSnapshot") {
                 val data = call.receive<ReqId>()
                 val fp = SnapshotStore.snapshotFile(data.id)
