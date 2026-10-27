@@ -16,7 +16,11 @@ object DidiCardExtractor {
     private const val PKG = "com.sdu.didi.gsui"
 
     // 关键 viewId（与 DidiWatch didi_tree.py 一致）
-    private const val VID_FRAGMENT = "order_review_fragment"   // 卡片容器
+    private const val VID_FRAGMENT = "order_review_fragment"   // 卡片容器(预约单)
+    private const val VID_FRAGMENT_RT = "order_card_show_layout" // 卡片容器(实时单, 结构不同)
+    /** 卡片容器: 预约单用 order_review_fragment, 实时单用 order_card_show_layout */
+    private fun findFragment(root: AccessibilityNodeInfo?): AccessibilityNodeInfo? =
+        findByVid(root, VID_FRAGMENT) ?: findByVid(root, VID_FRAGMENT_RT)
     private const val VID_PRICE = "price_info_card_title"      // 价格
     private const val VID_LEFT_BTN = "order_review_left_btn"   // "不抢"按钮容器
     private const val VID_RIGHT_BTN = "order_review_right_btn" // 抢单按钮容器
@@ -27,13 +31,13 @@ object DidiCardExtractor {
      * 口径与 DidiWatch 一致：必须有卡片容器，且有 价格 或 抬头 之一。
      */
     fun hasCard(root: AccessibilityNodeInfo?): Boolean {
-        val frag = findByVid(root, VID_FRAGMENT) ?: return false
+        val frag = findFragment(root) ?: return false
         return findByVid(frag, VID_PRICE) != null || findByVid(frag, VID_HEAD_TAG) != null
     }
 
     /** 提取卡片字段；没有卡片返回 null */
     fun extract(root: AccessibilityNodeInfo?): DidiCard? {
-        val frag = findByVid(root, VID_FRAGMENT) ?: return null
+        val frag = findFragment(root) ?: return null
         val priceNode = findByVid(frag, VID_PRICE)
         val headNode = findByVid(frag, VID_HEAD_TAG)
         if (priceNode == null && headNode == null) return null
