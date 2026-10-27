@@ -19,6 +19,16 @@ import java.io.FileWriter
  */
 object DidiArchiver {
 
+    // 去重: 同一张卡(价格|距您|时间签名)15秒内不重复存档(actionCd:0 时同卡会反复触发, 曾致 10 倍重复)
+    private val lastSig = java.util.concurrent.atomic.AtomicReference<Pair<String, Long>?>(null)
+    private fun dup(sig: String): Boolean {
+        val now = System.currentTimeMillis()
+        val prev = lastSig.get()
+        if (prev != null && prev.first == sig && now - prev.second < 15000) return true
+        lastSig.set(Pair(sig, now))
+        return false
+    }
+
     private fun root(): File {
         // 优先 App 外部私有目录(无权限问题); 失败退回内部 filesDir
         val base = try {
@@ -37,6 +47,8 @@ object DidiArchiver {
      * @return 记录的截图文件名(空=无图)
      */
     fun archive(card: DidiCard, verdict: DidiVerdict, bmp: Bitmap?): String {
+        val sig = "${card.price}|${card.distMe}|${card.timeText}"
+        if (dup(sig)) return ""          // 同卡 15s 内重复触发 -> 跳过存档
         return try {
             val dir = root()
             val capDir = File(dir, "captures"); capDir.mkdirs()

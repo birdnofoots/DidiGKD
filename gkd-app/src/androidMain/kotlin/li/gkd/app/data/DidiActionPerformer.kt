@@ -80,9 +80,10 @@ data object DidiActionPerformer : ActionPerformer("didi") {
         archiveAsync(card, verdict)
 
         // 4. 按决策点击对应按钮
+        // 找按钮也用根节点(规则匹配的是抬头叶子, 在它子树里找不到按钮) —— 修复"决策对但没点"
         val target = when (verdict) {
-            DidiVerdict.NoGrab -> DidiCardExtractor.findNoGrabButton(node)
-            DidiVerdict.Grab -> DidiCardExtractor.findGrabButton(node)
+            DidiVerdict.NoGrab -> DidiCardExtractor.findNoGrabButton(rootNode)
+            DidiVerdict.Grab -> DidiCardExtractor.findGrabButton(rootNode)
             else -> null   // WaitPrice / Pass：不点
         }
 
