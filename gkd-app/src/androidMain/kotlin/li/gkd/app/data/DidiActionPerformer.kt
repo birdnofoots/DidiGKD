@@ -44,9 +44,11 @@ data object DidiActionPerformer : ActionPerformer("didi") {
     /** 价格稳定状态机（跨事件保持；ActionPerformer 是 object 单例，天然适合持有状态） */
     private val tracker = PriceStableTracker()
 
-    /** 开关：是否真实点击（影子模式时为 false，只记录不点） */
+    /** 开关：是否真实点击（影子模式时为 false，只记录不点）。
+     *  默认 false=影子模式：P4 对账期 DidiGKD 只决策+存档不点，真实点击交给 DidiWatch，避免两 App 竞争同一按钮。
+     *  P5 切主时通过 HTTP POST /v1/didi/tap_enabled=true 打开(不用重编译)。 */
     @Volatile
-    var tapEnabled: Boolean = true
+    var tapEnabled: Boolean = false
 
     /** P2: 决策后截图+存档(后台异步) */
     private fun archiveAsync(card: li.gkd.app.didi.DidiCard, verdict: li.gkd.app.didi.DidiVerdict) {
