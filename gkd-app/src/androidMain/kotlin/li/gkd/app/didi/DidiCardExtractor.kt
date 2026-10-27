@@ -43,7 +43,7 @@ object DidiCardExtractor {
 
         // 距离/时间：卡片里 journey_value 节点按 y 坐标排序，预约单 3 个(时间/距您/全程)，实时单 2 个
         val journeys = findAllByVid(frag, "journey_value")
-            .sortedWith(compareBy({ it.boundsInScreen.top }, { it.boundsInScreen.left }))
+            .sortedWith(compareBy({ topOf(it) }, { leftOf(it) }))
         val jTexts = journeys.mapNotNull { it.text?.toString() }
         val timeText = jTexts.getOrNull(0)?.takeIf { it.contains(":") || it.contains("天") || it.contains("月") }
         val distMe = jTexts.mapNotNull { parseKm(it) }.getOrNull(0)
@@ -51,7 +51,7 @@ object DidiCardExtractor {
 
         // 起终点：address_name 节点按 y 排序，第一个起点第二个终点
         val addrs = findAllByVid(frag, "address_name")
-            .sortedBy { it.boundsInScreen.top }
+            .sortedBy { topOf(it) }
             .mapNotNull { it.text?.toString()?.trim()?.takeIf { s -> s.isNotEmpty() } }
         val addrFrom = addrs.getOrNull(0)
         val addrTo = addrs.getOrNull(1)
@@ -87,6 +87,16 @@ object DidiCardExtractor {
     /** 找抢单按钮容器 */
     fun findGrabButton(root: AccessibilityNodeInfo?): AccessibilityNodeInfo? =
         findByVid(root, VID_RIGHT_BTN)
+
+    // ---------- 坐标 ----------
+    // 用标准 API getBoundsInScreen(Rect)，不用 GKD 的 .toHidden.boundsInScreen
+    // (那是 hidden API 扩展，直接对 AccessibilityNodeInfo 调会 Unresolved reference)
+    private fun topOf(n: AccessibilityNodeInfo): Int {
+        val r = android.graphics.Rect(); n.getBoundsInScreen(r); return r.top
+    }
+    private fun leftOf(n: AccessibilityNodeInfo): Int {
+        val r = android.graphics.Rect(); n.getBoundsInScreen(r); return r.left
+    }
 
     // ---------- 节点查找 ----------
 
