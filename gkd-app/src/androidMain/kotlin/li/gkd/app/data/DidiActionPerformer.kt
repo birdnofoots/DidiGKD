@@ -52,15 +52,12 @@ data object DidiActionPerformer : ActionPerformer("didi") {
         val card = DidiCardExtractor.extract(node)
             ?: return ActionResult(action = action, result = false)
 
-        // 2. 价格稳定判定：签名 = 价格+距离+时间，区分"同卡连续读数" vs "换卡"
-        val sig = "${card.price}|${card.distMe}|${card.timeText}"
-        val stable = tracker.update(card.price, sig)
-
-        // 3. 决策
-        val verdict = decide(card, stable)
+        // 2. 决策(价格稳定由订阅规则的 actionDelay 保证: 匹配后等 80ms 再执行, 读到的已是稳定价)
+        //    不再用 price_stable 状态机 —— 它是 DidiWatch/adb 轮询时代的产物, GKD 单次触发下水土不服
+        val verdict = decide(card, true)
 
         Log.i(TAG, "card price=${card.price} dist=${card.distMe} kind=${card.kind} " +
-                "stable=$stable verdict=${verdict.name} tap=$tapEnabled")
+                "verdict=${verdict.name} tap=$tapEnabled")
 
         // 4. 按决策点击对应按钮
         val target = when (verdict) {
