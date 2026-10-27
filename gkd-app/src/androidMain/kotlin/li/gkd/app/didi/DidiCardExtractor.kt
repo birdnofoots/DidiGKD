@@ -66,10 +66,12 @@ object DidiCardExtractor {
         val tagText = headNode?.text?.toString()
         val hasLeftBtn = findByVid(frag, VID_LEFT_BTN) != null
         // 卡种：有"不抢"按钮 → 预约单；抬头文字兜底
+        // 卡种判据 = 抬头文本(最直接可靠): 含"预约单"→预约单, 含"实时单"→实时单
+        // (实测抬头: '专车舒适·预约单' vs '专车舒适·实时单' / '专车舒适·送站·实时单')
         val kind = when {
-            hasLeftBtn -> "预约单"
-            tagText?.contains("预约单") == true -> "预约单"
             tagText?.contains("实时单") == true -> "实时单"
+            tagText?.contains("预约单") == true -> "预约单"
+            hasLeftBtn -> "预约单"          // 兜底: 有"不抢"按钮=预约单
             else -> "未知"
         }
 
