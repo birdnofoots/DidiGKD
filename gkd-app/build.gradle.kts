@@ -56,6 +56,7 @@ kotlin {
             api(project(":gkd-selector"))
             api(libs.kotlinx.coroutines.core)
             api(libs.kotlinx.atomicfu)
+            implementation(libs.rhino)   // P3: JS 引擎(Rhino 纯JVM) 跑 flow.js 控制流
             api(libs.exp4j)
             api(libs.androidx.paging.compose)
             api(libs.coil.compose)
