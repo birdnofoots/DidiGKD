@@ -18,9 +18,12 @@ object DidiCardExtractor {
     // 关键 viewId（与 DidiWatch didi_tree.py 一致）
     private const val VID_FRAGMENT = "order_review_fragment"   // 卡片容器(预约单)
     private const val VID_FRAGMENT_RT = "order_card_show_layout" // 卡片容器(实时单, 结构不同)
-    /** 卡片容器: 预约单用 order_review_fragment, 实时单用 order_card_show_layout */
+    /** 卡片锚点 = 抬头(order_review_head_tag_view): 预约单+实时单都有, 且是卡片专属。
+     *  ⚠️ 不用 order_card_show_layout —— 行程中/收款页也有它, 会误抓(实测教训)。
+     *  卡种判据(照 didi_tree.py): 有"不抢"按钮=预约单, 只有抬头=实时单。 */
     private fun findFragment(root: AccessibilityNodeInfo?): AccessibilityNodeInfo? =
-        findByVid(root, VID_FRAGMENT) ?: findByVid(root, VID_FRAGMENT_RT)
+        // 抬头存在 = 是订单卡(预约单/实时单都有); 返回 root 让字段从整棵树找(抬头是叶子, 字段不在它子树)
+        if (findByVid(root, VID_HEAD_TAG) != null) root else findByVid(root, VID_FRAGMENT)
     private const val VID_PRICE = "price_info_card_title"      // 价格
     private const val VID_LEFT_BTN = "order_review_left_btn"   // "不抢"按钮容器
     private const val VID_RIGHT_BTN = "order_review_right_btn" // 抢单按钮容器

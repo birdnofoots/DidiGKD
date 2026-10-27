@@ -64,8 +64,9 @@ data object DidiActionPerformer : ActionPerformer("didi") {
         node: AccessibilityNodeInfo,
         locationProps: RawSubscription.LocationProps,
     ): ActionResult {
-        // 1. 提取卡片字段（node 就是规则匹配到的卡片容器）
-        val card = DidiCardExtractor.extract(node)
+        // 1. 提取卡片字段。规则匹配的是抬头(叶子), 字段要从整棵树找 → 用无障碍根节点
+        val rootNode = A11yService.instance?.windowNodeInfo ?: node
+        val card = DidiCardExtractor.extract(rootNode)
             ?: return ActionResult(action = action, result = false)
 
         // 2. 决策(价格稳定由订阅规则的 actionDelay 保证: 匹配后等 80ms 再执行, 读到的已是稳定价)
