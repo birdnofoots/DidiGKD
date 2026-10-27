@@ -43,6 +43,8 @@ class FlowEngine(private val host: FlowHost) {
     fun load(code: String): Boolean {
         return try {
             val c = Context.enter()
+            // 默认 languageVersion=1.7 不认 let/const/箭头函数(missing ; before statement #6)
+            c.setLanguageVersion(Context.VERSION_ES6)
             val sc = c.initStandardObjects()
             val so = sc as ScriptableObject
 
