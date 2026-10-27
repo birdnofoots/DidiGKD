@@ -20,6 +20,18 @@ import li.gkd.app.subscription.RawSubscription
  * 和**决策**(抢/不抢/等待)，这是纯选择器语言表达不了的。
  *
  * 薄补丁纪律：滴滴业务逻辑全在 li.gkd.app.didi 包；本文件只是"胶水"，不掺业务判断。
+ *
+ * ── 演进路径（P3 做 QuickJS 时照此改造，不必重新理解架构）─────────────────
+ * 当前 action:"didi" 是**滴滴专属硬编码**，每适配一个新 App 都要重编译 —— 这是已知取舍。
+ * P3 引入脚本引擎后，本文件的外部接口（GKD 匹配卡片 → 调 perform）**保持不变**，
+ * 只需把 decide() 那一步换成"调用 QuickJS 执行 flow.js"，action 改名为 "script"：
+ *
+ *     现在:  perform() → extract → tracker → decide(硬编码) → 点击
+ *     P3:    perform() → extract → tracker → quickjs.evaluate("flow.js") → 点击
+ *
+ * 提取字段 / 价格稳定 / 决策骨架 / 点击 这套流程是通用的，P3 直接复用；
+ * 只有"决策"那一步从 Kotlin 常量换成脚本调用。届时各家 App 用各自 flow.js，
+ * 不再重编译 —— 正是"模板生成动作"的最终形态。
  */
 data object DidiActionPerformer : ActionPerformer("didi") {
 
