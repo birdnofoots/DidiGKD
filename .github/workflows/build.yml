@@ -22,11 +22,17 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # 未提供 GKD_STORE_FILE 时, gkd-android/build.gradle.kts 自动 fallback 到 debug 签名
-      # (AGP 的 debug keystore 由固定参数生成, 所有开发机内容一致 → 后续可覆盖安装)
-      # 要换正式签名时: 设置 secrets ANDROID_KEYSTORE_BASE64 / _PASSWORD / _ALIAS / _KEY_PASSWORD
-      # 并恢复下面的 write keystore 步骤与 env
+      # birdnofoots 通用固定签名(easycontrol)，与 Easycontrol/DidiWatch 同一把，
+      # 确保 APK 之间可互相覆盖安装、更新不丢授权。
+      - name: write keystore
+        run: echo ${{ secrets.ANDROID_KEYSTORE_BASE64 }} | base64 --decode > ${{ github.workspace }}/didigkd.jks
+
       - run: ./gradlew :gkd-android:assembleGkdRelease
+        env:
+          GKD_STORE_FILE: ${{ github.workspace }}/didigkd.jks
+          GKD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GKD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GKD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - uses: actions/upload-artifact@v7
         with:
