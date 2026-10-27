@@ -18,7 +18,7 @@ data class SettingsStore(
     val captureScreenshot: Boolean = false,
     val screenshotTargetAppId: String = "",
     val screenshotEventSelector: String = "",
-    val httpServerPort: Int = 8888,
+    val httpServerPort: Int = 8488,   // DidiGKD: 默认改 8488(官方 GKD 用 8888, 并存避免端口冲突); 设置页可手动改
     val updateSubsInterval: Long = SubscriptionUpdateInterval.Daily,
     val captureVolumeChange: Boolean = false,
     val toastWhenClick: Boolean = true,
