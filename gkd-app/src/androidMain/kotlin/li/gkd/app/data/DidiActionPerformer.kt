@@ -2,7 +2,11 @@ package li.gkd.app.data
 
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlinx.coroutines.launch
+import li.gkd.app.appScope
+import li.gkd.app.didi.DidiArchiver
 import li.gkd.app.didi.DidiCardExtractor
+import li.gkd.app.service.A11yService
 import li.gkd.app.didi.DidiVerdict
 import li.gkd.app.didi.PriceStableTracker
 import li.gkd.app.didi.decide
@@ -44,6 +48,19 @@ data object DidiActionPerformer : ActionPerformer("didi") {
     @Volatile
     var tapEnabled: Boolean = true
 
+    /** P2: 决策后截图+存档(后台异步) */
+    private fun archiveAsync(card: li.gkd.app.didi.DidiCard, verdict: li.gkd.app.didi.DidiVerdict) {
+        appScope.launch {
+            try {
+                val bmp = A11yService.instance?.screenshot()
+                DidiArchiver.archive(card, verdict, bmp)
+                bmp?.recycle()
+            } catch (e: Exception) {
+                Log.w(TAG, "存档异常: $e")
+            }
+        }
+    }
+
     override suspend fun perform(
         node: AccessibilityNodeInfo,
         locationProps: RawSubscription.LocationProps,
@@ -58,6 +75,9 @@ data object DidiActionPerformer : ActionPerformer("didi") {
 
         Log.i(TAG, "card price=${card.price} dist=${card.distMe} kind=${card.kind} " +
                 "verdict=${verdict.name} tap=$tapEnabled")
+
+        // P2: 决策后截图+存档(后台异步, 不拖慢点击)。所有决策都存(含 wait_price/pass), 供 P4 对账
+        archiveAsync(card, verdict)
 
         // 4. 按决策点击对应按钮
         val target = when (verdict) {
