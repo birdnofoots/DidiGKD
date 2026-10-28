@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import li.gkd.app.didi.registerDidiWebRoutes
+import li.gkd.app.didi.registerDidiRuleGenRoute
 import li.gkd.app.inspection.InspectionException
 import li.gkd.app.inspection.InspectionFailure
 import li.gkd.app.model.ActionResult
@@ -59,6 +60,7 @@ fun Application.configureInspectionServer(
         get("/") { call.respondText(ContentType.Text.Html) { "<script type='module' src='$scriptUrl'></script>" } }
         // DidiGKD 网页报告 + flow.js 远程定制(薄补丁, 见 DidiWebReport.kt)
         registerDidiWebRoutes()
+        registerDidiRuleGenRoute()
         route("/api") {
             registerSubscriptionRoutes()
             post("/getServerInfo") { call.respond(serverInfo()) }

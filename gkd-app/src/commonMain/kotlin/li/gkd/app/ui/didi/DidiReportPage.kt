@@ -56,7 +56,7 @@ object DidiReportData {
 
     /** 正则取字段(commonMain 不能用 org.json) */
     private fun field(line: String, key: String): String {
-        val m = Regex("\"" + key + "\"\\s*:\\s*\"([^\"]*)\"").find(line)
+        val m = Regex("\"" + key + "\"\\s*:\\s*\"?([^\",}]*)\"?").find(line)
         return m?.groupValues?.get(1) ?: ""
     }
 
