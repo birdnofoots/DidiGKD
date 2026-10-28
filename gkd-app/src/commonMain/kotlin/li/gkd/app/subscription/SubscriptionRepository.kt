@@ -70,23 +70,35 @@ object SubscriptionRepository {
                         previous = SubscriptionSnapshot(),
                     )
                 }
-                if (items.any { it.id == SubscriptionIds.LOCAL }) return@withStateLock
+                // 分发版：本地订阅不存在或还是空的 → 写入内置滴滴规则(装完即用, 无需联网)
+                val localBytes = files.readBytes(SubscriptionIds.LOCAL)
+                val localParsed = localBytes?.let {
+                    try {
+                        RawSubscription.parse(it.decodeToString(), json5 = false)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val hasLocalRule = localParsed?.hasRule == true
+                val hasLocalRow = items.any { it.id == SubscriptionIds.LOCAL }
+                if (hasLocalRule && hasLocalRow) return@withStateLock
+
                 val item = SubsItem(
                     id = SubscriptionIds.LOCAL,
                     order = items.minByOrNull { it.order }?.order ?: 0,
                 )
-                if (files.readBytes(SubscriptionIds.LOCAL) != null) {
+                if (hasLocalRule) {
+                    // 已有规则但缺 DB 行 → 只补行
                     Db.subsItemDao.upsert(item)
                     refreshRawSubscriptions(listOf(item))
                 } else {
+                    if (hasLocalRow && localBytes == null) {
+                        Db.subsItemDao.upsert(item)
+                    }
                     saveLocked(
-                        subscription = RawSubscription(
-                            id = SubscriptionIds.LOCAL,
-                            name = initialName,
-                            version = 0,
-                        ),
-                        newItem = item,
-                        insertItem = true,
+                        subscription = BuiltinDidiRule.build(initialName),
+                        newItem = if (hasLocalRow) null else item,
+                        insertItem = !hasLocalRow,
                     )
                 }
             } catch (e: CancellationException) {

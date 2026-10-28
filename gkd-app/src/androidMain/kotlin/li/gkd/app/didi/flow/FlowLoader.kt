@@ -3,12 +3,13 @@ package li.gkd.app.didi.flow
 import android.util.Log
 import java.io.File
 import java.security.MessageDigest
+import li.gkd.app.storage.appStorage
 
 /**
  * P3 热更新: flow.js 从外部文件读, 改完不重编译不重启, 下一单即生效。
  *
  * 路径(与 P2 存档同目录, adb 可直接读写):
- *   /storage/emulated/0/Android/data/com.birdnofoots.didigkd/files/DidiGKD/flow.js
+ *   <appStorage().didi>/flow.js  (= getExternalFilesDir(null)/DidiGKD/flow.js)
  *
  * 策略:
  *  - 文件不存在 -> 自动写入内置默认 flow.js(方便直接编辑)
@@ -17,8 +18,7 @@ import java.security.MessageDigest
  */
 object FlowLoader {
     private const val TAG = "DidiGKD"
-    val flowFile: File =
-        File("/storage/emulated/0/Android/data/com.birdnofoots.didigkd/files/DidiGKD/flow.js")
+    val flowFile: File get() = appStorage().didi.resolve("flow.js")
 
     private var loadedHash: String? = null   // 当前引擎里跑的版本
     private var badHash: String? = null      // 已知有错的版本(不重复报)

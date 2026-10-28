@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.os.Environment
 import java.io.File
 import java.io.FileWriter
+import li.gkd.app.storage.appStorage
 
 /**
  * 滴滴决策存档（P2）：决策后保存 截图 + 结构化记录。
@@ -40,18 +41,7 @@ object DidiArchiver {
         return false
     }
 
-    private fun root(): File {
-        // 优先 App 外部私有目录(无权限问题); 失败退回内部 filesDir
-        val base = try {
-            Environment.getExternalStorageDirectory()?.parentFile
-        } catch (e: Exception) {
-            null
-        }
-        // 直接用固定路径: /storage/emulated/0/Android/data/<pkg>/files/DidiGKD
-        val f = File("/storage/emulated/0/Android/data/com.birdnofoots.didigkd/files/DidiGKD")
-        if (!f.exists()) f.mkdirs()
-        return f
-    }
+    private fun root(): File = appStorage().didi
 
     /**
      * 存一条决策记录 + 截图。

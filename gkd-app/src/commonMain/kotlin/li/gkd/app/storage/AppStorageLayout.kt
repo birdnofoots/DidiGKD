@@ -16,6 +16,8 @@ class AppStorageLayout(
     val database get() = db.resolve("gkd.db")
     val store get() = directory(files, "store")
     val subscription get() = directory(files, "subscription")
+    /** DidiGKD 业务目录(截图/记录/flow.js) — 分发版统一走这里, 不再硬编码路径 */
+    val didi get() = directory(files, "DidiGKD")
     val snapshot get() = directory(files, "snapshot")
     val log get() = directory(files, "log")
     val crash get() = directory(files, "crash")

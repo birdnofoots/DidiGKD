@@ -1,4 +1,5 @@
 package li.gkd.app.ui.didi
+import li.gkd.app.storage.appStorage
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -49,7 +50,7 @@ data class DidiRecord(
 )
 
 object DidiReportData {
-    const val DIR = "/storage/emulated/0/Android/data/com.birdnofoots.didigkd/files/DidiGKD"
+    val DIR: File get() = appStorage().didi
     val recordsFile get() = File(DIR, "records.jsonl")
     val capturesDir get() = File(DIR, "captures")
     val flowJsFile get() = File(DIR, "flow.js")

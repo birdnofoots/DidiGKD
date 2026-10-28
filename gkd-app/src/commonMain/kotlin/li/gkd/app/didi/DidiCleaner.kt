@@ -1,6 +1,7 @@
 package li.gkd.app.didi
 
 import java.io.File
+import li.gkd.app.storage.appStorage
 
 /**
  * 滴滴存档清理（P2，commonMain）：截图+记录**联动删**，防数据膨胀。
@@ -8,7 +9,7 @@ import java.io.File
  */
 object DidiCleaner {
 
-    private fun root(): File = File("/storage/emulated/0/Android/data/com.birdnofoots.didigkd/files/DidiGKD")
+    private fun root(): File = appStorage().didi
 
     private fun jsonStr(line: String, key: String): String {
         val m = Regex("\"$key\"\\s*:\\s*\"([^\"]*)\"").find(line) ?: return ""
