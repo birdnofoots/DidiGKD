@@ -29,7 +29,7 @@ fun Routing.registerDidiWebRoutes() {
         for (r in DidiReportData.load()) {
             if (!first) sb.append(",")
             first = false
-            sb.append("""{"ts":"${r.ts}","price":"${r.price}","kind":"${r.kind}","verdict":"${r.verdict}","shot":"${r.shot}","addrTo":"${r.addrTo}"}""")
+            sb.append("""{"ts":"${r.ts}","price":"${r.price}","kind":"${r.kind}","verdict":"${r.verdict}","shot":"${r.shot}","addrFrom":"${r.addrFrom}","addrTo":"${r.addrTo}","distMe":"${r.distMe}","distAll":"${r.distAll}","timeText":"${r.timeText}"}""")
         }
         sb.append("]")
         call.respondText(ContentType.Application.Json) { sb.toString() }
@@ -97,7 +97,9 @@ body{font-family:system-ui;margin:0;background:#0f1115;color:#e6e6e6}
 .ts{color:#8b93a7;font-size:12px}.kind{color:#4d8bff;font-size:12px;margin-left:8px}
 .price{font-size:17px;font-weight:700;margin:2px 0}
 .grab{color:#4d8bff}.no_grab{color:#c58bff}.pass{color:#8b93a7}
-.to{color:#8b93a7;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.to{color:#c8cedd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lbl{display:inline-block;width:18px;color:#8b93a7}
+.tm{color:#c58bff;font-size:12px;margin-left:8px}
 .del{position:absolute;top:8px;right:8px;background:transparent;border:0;color:#8b93a7;font-size:16px;cursor:pointer;padding:2px 6px}
 .del:hover{color:#ff6b6b}
 .pg{display:flex;justify-content:center;align-items:center;gap:14px;padding:14px}
@@ -158,9 +160,13 @@ function render(){
       img='<img src="'+u+'" loading="lazy" onclick="openLb(this.src)">';}
     var delbtn=r.shot?'<button class="del" onclick="del(\''+r.shot+'\')" title="删除">&#128465;</button>':'';
     h+='<div class="card">'+delbtn+img+'<div class="meta">'
-      +'<div><span class="ts">'+r.ts+'</span><span class="kind">'+r.kind+'</span></div>'
-      +'<div class="price '+vc+'">'+String.fromCharCode(165)+r.price+' \u00b7 '+(r.verdict||'-')+'</div>'
-      +'<div class="to">'+(r.addrTo||'')+'</div></div></div>';
+      +'<div><span class="ts">'+r.ts+'</span><span class="kind">'+r.kind+'</span>'
+      +(r.timeText?'<span class="tm"> \u4e0a\u8f66 '+r.timeText+'</span>':'')+'</div>'
+      +'<div class="price '+vc+'">'+String.fromCharCode(165)+r.price+' \u00b7 '+(r.verdict||'-')
+      +(r.distMe?' \u00b7 \u8ddd\u6211'+r.distMe+'km':'')
+      +(r.distAll?' \u00b7 \u884c\u7a0b'+r.distAll+'km':'')+'</div>'
+      +'<div class="to"><span class="lbl">\u4ece</span>'+(r.addrFrom||'-')+'</div>'
+      +'<div class="to"><span class="lbl">\u5230</span>'+(r.addrTo||'-')+'</div></div></div>';
   }
   h+='<div class="pg"><button onclick="prev()">上一页</button><span>'+String.fromCharCode(160)+list.length+'条 \u00b7 第'+(page+1)+'/'+pages+'页</span><button onclick="next()">下一页</button></div>';
   c.innerHTML=h;}
