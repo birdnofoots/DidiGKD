@@ -71,8 +71,15 @@ fun Routing.registerDidiWebRoutes() {
     post("/api/flow_js") {
         val body = call.receiveText()
         val f = DidiReportData.flowJsFile
-        f.parentFile?.mkdirs()
-        f.writeText(body)
+        try {
+            f.parentFile?.mkdirs()
+            f.writeText(body)
+        } catch (e: Exception) {
+            // EACCES: adb push 创建的 flow.js owner=shell, App 只有读权限 → 删除重建(owner=App)
+            try { f.delete() } catch (_: Exception) {}
+            f.parentFile?.mkdirs()
+            f.writeText(body)
+        }
         call.respondText(ContentType.Text.Plain) { "saved " + body.length + " bytes, 下一单生效" }
     }
 }

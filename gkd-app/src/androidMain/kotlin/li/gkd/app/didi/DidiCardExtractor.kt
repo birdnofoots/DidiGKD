@@ -53,8 +53,11 @@ object DidiCardExtractor {
             .sortedWith(compareBy({ topOf(it) }, { leftOf(it) }))
         val jTexts = journeys.mapNotNull { it.text?.toString() }
         val timeText = jTexts.getOrNull(0)?.takeIf { it.contains(":") || it.contains("天") || it.contains("月") }
-        val distMe = jTexts.mapNotNull { parseKm(it) }.getOrNull(0)
-        val distAll = jTexts.mapNotNull { parseKm(it) }.getOrNull(1)
+        // ★关键: 必须先剔除时间类文本再取距离 —— 否则"今天18:30"会被parseKm抠出数字8混入, 导致距我/行程错位一位
+        // (实测: DidGKD 距我8/行程17.8 vs DidWatch 距我17.8/全程14.6, 就是时间混入导致的)
+        val kmTexts = jTexts.filter { !it.contains(":") && !it.contains("天") && !it.contains("月") }
+        val distMe = kmTexts.mapNotNull { parseKm(it) }.getOrNull(0)
+        val distAll = kmTexts.mapNotNull { parseKm(it) }.getOrNull(1)
 
         // 起终点：address_name 节点按 y 排序，第一个起点第二个终点
         val addrs = findAllByVid(frag, "address_name")
