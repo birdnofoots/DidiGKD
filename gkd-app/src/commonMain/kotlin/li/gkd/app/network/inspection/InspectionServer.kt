@@ -56,6 +56,8 @@ fun Application.configureInspectionServer(
     install(ContentNegotiation) { json(jsonFormat) }
     routing {
         get("/") { call.respondText(ContentType.Text.Html) { "<script type='module' src='$scriptUrl'></script>" } }
+        // DidiGKD 网页报告 + flow.js 远程定制(薄补丁, 见 DidiWebReport.kt)
+        registerDidiWebRoutes()
         route("/api") {
             registerSubscriptionRoutes()
             post("/getServerInfo") { call.respond(serverInfo()) }

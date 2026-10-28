@@ -51,6 +51,7 @@ object DidiReportData {
     const val DIR = "/storage/emulated/0/Android/data/com.birdnofoots.didigkd/files/DidiGKD"
     val recordsFile get() = File(DIR, "records.jsonl")
     val capturesDir get() = File(DIR, "captures")
+    val flowJsFile get() = File(DIR, "flow.js")
 
     /** 正则取字段(commonMain 不能用 org.json) */
     private fun field(line: String, key: String): String {
