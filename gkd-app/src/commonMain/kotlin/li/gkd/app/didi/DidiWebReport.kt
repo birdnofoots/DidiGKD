@@ -8,6 +8,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.request.receiveText
 import java.io.File
+import li.gkd.app.ui.didi.DidiReportData
 
 /**
  * DidiGKD 网页报告 + flow.js 远程定制（挂到 GKD 自带 HTTP 服务上）。
@@ -92,17 +93,21 @@ body{font-family:system-ui;margin:0;background:#0f1115;color:#e6e6e6}
 <div class="c" id="c"><div class="n">加载中...</div></div>
 <script>
 async function load(){
-  const c=document.getElementById('c');
-  let rs; try{rs=await (await fetch('/api/didi_records')).json();}catch(e){c.innerHTML='<div class=n>获取失败: '+e+'</div>';return;}
+  var c=document.getElementById('c');
+  var rs; try{rs=await (await fetch('/api/didi_records')).json();}catch(e){c.innerHTML='<div class=n>fetch err: '+e+'</div>';return;}
   if(!rs.length){c.innerHTML='<div class=n>暂无记录<br>(等弹单后自动生成)</div>';return;}
-  c.innerHTML = rs.map(r=>{
-    const vc = r.verdict==='grab'?'grab':(r.verdict==='no_grab'?'no_grab':'pass');
-    const img = r.shot ? `<img src="/api/didi_shot?name=${encodeURIComponent(r.shot)}" onerror="this.style.visibility='hidden'">` : '';
-    return `<div class="card">${img}<div class="meta">
-      <div><span class="ts">${r.ts}</span><span class="kind">${r.kind}</span></div>
-      <div class="price ${vc}">¥${r.price} · ${r.verdict||'-'}</div>
-      <div class="to">${r.addrTo||''}</div></div></div>`;
-  }).join('');
+  var h='';
+  for(var i=0;i<rs.length;i++){
+    var r=rs[i];
+    var vc = r.verdict==='grab'?'grab':(r.verdict==='no_grab'?'no_grab':'pass');
+    var img = '';
+    if(r.shot){ img='<img src="/api/didi_shot?name='+encodeURIComponent(r.shot)+'" onerror="this.style.visibility=\'hidden\'">'; }
+    h += '<div class="card">'+img+'<div class="meta">'
+       + '<div><span class="ts">'+r.ts+'</span><span class="kind">'+r.kind+'</span></div>'
+       + '<div class="price '+vc+'">\u00a5'+r.price+' \u00b7 '+(r.verdict||'-')+'</div>'
+       + '<div class="to">'+(r.addrTo||'')+'</div></div></div>';
+  }
+  c.innerHTML=h;
 }
 load();
 </script>
