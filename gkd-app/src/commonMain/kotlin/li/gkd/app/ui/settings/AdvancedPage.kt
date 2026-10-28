@@ -18,6 +18,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import li.gkd.app.didi.DidiConfig
 import androidx.compose.ui.Modifier
 import li.gkd.app.ui.component.gkTopAppBarScroll
 import androidx.compose.ui.text.input.KeyboardType
@@ -253,6 +259,24 @@ fun AdvancedPage(
                 onSuffixClick = { mainVm.navigator.openWebPage(AppLinks.CookieHelp) },
                 imageVector = GkIcons.Edit,
                 onClick = mainVm.githubUpload::editCookie,
+            )
+
+            // ===== DidiGKD 滴滴自动化 开关组 =====
+            AdvancedSectionTitle("DidiGKD 滴滴自动化")
+            var didiTapEnabled by remember { mutableStateOf(DidiConfig.tapEnabled.value) }
+            // 双向同步: HTTP POST /api/didi_tap 改了值, UI 也能刷新(每2秒)
+            LaunchedEffect(Unit) {
+                while (true) { delay(2000); didiTapEnabled = DidiConfig.tapEnabled.value }
+            }
+            GkTextSwitch(
+                title = "真实点击",
+                subtitle = "开=真点击抢/不抢  关=影子模式(只决策+存档不点)",
+                checked = didiTapEnabled,
+                onCheckedChange = { en -> didiTapEnabled = en; DidiConfig.tapEnabled.value = en },
+            )
+            GkSettingItem(
+                title = "控制流 flow.js",
+                subtitle = "热更新: 改文件后下一单生效, 语法错自动回退上一版",
             )
             GkPageBottomSpace()
         }
