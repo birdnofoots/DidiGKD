@@ -12,14 +12,13 @@ import li.gkd.app.ui.didi.DidiReportData
 
 /**
  * DidiGKD 网页报告 + flow.js 远程定制（挂到 GKD 自带 HTTP 服务上）。
- *
- * 端点：
- *   GET  /didi/report          网页报告(自包含 HTML, 每单截图+决策, 点击截图看全图)
- *   GET  /didi/flow            flow.js 网页编辑器(改完下一单热生效)
+ *   GET  /didi/report          网页报告(过滤/分页/删除)
+ *   GET  /didi/flow            flow.js 网页编辑器
  *   GET  /api/didi_records     JSON 记录列表
- *   GET  /api/didi_shot?name=x 截图文件(captures/下, 全尺寸)
- *   GET  /api/flow_js          读 flow.js 内容
- *   POST /api/flow_js          写 flow.js(热更新, 下一单生效)
+ *   GET  /api/didi_shot?name=x 截图(全尺寸)
+ *   POST /api/didi_del         删单条记录+截图 {name}
+ *   POST /api/didi_cleanup     批量删 {days:30} 或 {before:"日期"}
+ *   GET/POST /api/flow_js      读写 flow.js
  */
 fun Routing.registerDidiWebRoutes() {
     get("/didi/report") { call.respondText(ContentType.Text.Html) { DIDI_REPORT_HTML } }
@@ -43,9 +42,30 @@ fun Routing.registerDidiWebRoutes() {
         val f = File(DidiReportData.capturesDir, name)
         if (f.exists()) call.respondFile(f) else call.respondText("not found") { ContentType.Text.Plain }
     }
+    // 删单条: {name:"didi_xxx.jpg"} → 删截图 + 从 records.jsonl 移除匹配行
+    post("/api/didi_del") {
+        val body = call.receiveText()
+        val name = Regex("\"name\"\\s*:\\s*\"([^\"]*)\"").find(body)?.groupValues?.get(1) ?: ""
+        if (name.isEmpty() || name.contains("/") || name.contains("..")) {
+            call.respondText("bad name") { ContentType.Text.Plain }; return@post
+        }
+        val shot = File(DidiReportData.capturesDir, name)
+        val shotDel = if (shot.exists()) shot.delete() else false
+        var removed = 0
+        val f = DidiReportData.recordsFile
+        if (f.exists()) {
+            val keep = f.readLines().filter { l ->
+                val hit = l.contains("\"shot\":\"" + name + "\"")
+                if (hit) removed++
+                !hit
+            }
+            if (removed > 0) f.writeText(keep.joinToString("\n") + "\n")
+        }
+        call.respondText(ContentType.Text.Plain) { "removed=" + removed + " shotDel=" + shotDel }
+    }
     get("/api/flow_js") {
         val f = DidiReportData.flowJsFile
-        val txt = if (f.exists()) f.readText() else "// flow.js 尚未生成(等第一单触发后自动生成)"
+        val txt = if (f.exists()) f.readText() else "// flow.js 尚未生成"
         call.respondText(ContentType.Text.Plain) { txt }
     }
     post("/api/flow_js") {
@@ -53,7 +73,7 @@ fun Routing.registerDidiWebRoutes() {
         val f = DidiReportData.flowJsFile
         f.parentFile?.mkdirs()
         f.writeText(body)
-        call.respondText(ContentType.Text.Plain) { "saved ${body.length} bytes, 下一单生效(语法错会自动回退上一版)" }
+        call.respondText(ContentType.Text.Plain) { "saved " + body.length + " bytes, 下一单生效" }
     }
 }
 
@@ -63,47 +83,87 @@ private const val DIDI_REPORT_HTML = """<!DOCTYPE html>
 <style>
 *{box-sizing:border-box}
 body{font-family:system-ui;margin:0;background:#0f1115;color:#e6e6e6}
-.h{padding:14px 16px;background:#1a1d24;position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;z-index:5}
-.h b{font-size:17px}.h button{background:#2b6fff;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:14px}
-.c{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:720px;margin:0 auto}
-.card{background:#1a1d24;border-radius:12px;padding:10px;display:flex;gap:12px;align-items:center}
-.card img{width:110px;height:110px;object-fit:cover;border-radius:8px;background:#2a2e37;flex:none;cursor:zoom-in}
+.h{padding:12px 16px;background:#1a1d24;position:sticky;top:0;z-index:5}
+.h .t{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.h b{font-size:17px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.f{background:#2a2e37;color:#c8cedd;border:0;padding:5px 10px;border-radius:6px;font-size:13px;cursor:pointer}
+.f.on{background:#2b6fff;color:#fff}
+.purge{background:#7a2330;color:#ffb4c0;border:0;padding:5px 10px;border-radius:6px;font-size:13px;cursor:pointer;margin-left:auto}
+.c{padding:10px;display:flex;flex-direction:column;gap:8px;max-width:760px;margin:0 auto}
+.card{background:#1a1d24;border-radius:12px;padding:10px;display:flex;gap:12px;align-items:center;position:relative}
+.card img{width:96px;height:96px;object-fit:cover;border-radius:8px;background:#2a2e37;flex:none;cursor:zoom-in}
 .meta{flex:1;min-width:0}
 .ts{color:#8b93a7;font-size:12px}.kind{color:#4d8bff;font-size:12px;margin-left:8px}
-.price{font-size:18px;font-weight:700;margin:2px 0}
+.price{font-size:17px;font-weight:700;margin:2px 0}
 .grab{color:#4d8bff}.no_grab{color:#c58bff}.pass{color:#8b93a7}
 .to{color:#8b93a7;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.del{position:absolute;top:8px;right:8px;background:transparent;border:0;color:#8b93a7;font-size:16px;cursor:pointer;padding:2px 6px}
+.del:hover{color:#ff6b6b}
+.pg{display:flex;justify-content:center;align-items:center;gap:14px;padding:14px}
+.pg button{background:#2a2e37;color:#e6e6e6;border:0;padding:8px 16px;border-radius:8px;font-size:14px;cursor:pointer}
 .n{color:#8b93a7;text-align:center;padding:40px}
 #lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:99;justify-content:center;align-items:center;cursor:zoom-out}
 #lb img{max-width:100%;max-height:100%;object-fit:contain}
 </style></head>
 <body>
-<div class="h"><b>DidiGKD 决策报告</b><button onclick="load()">刷新</button></div>
+<div class="h">
+  <div class="t"><b>DidiGKD 决策报告</b><button class="f" onclick="load()">刷新</button></div>
+  <div class="bar" id="bar"></div>
+</div>
 <div class="c" id="c"><div class="n">加载中...</div></div>
-<div id="lb" onclick="closeLb()"><img id="lbi"></div>
+<div id="lb" onclick="this.style.display='none'"><img id="lbi"></div>
 <script>
-function openLb(src){document.getElementById('lbi').src=src;document.getElementById('lb').style.display='flex';}
-function closeLb(){document.getElementById('lb').style.display='none';}
+var all=[],filt={kind:'all',day:'all'},page=0,PER=30;
+function pad(n){return n<10?'0'+n:''+n;}
+function today(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function openLb(s){document.getElementById('lbi').src=s;document.getElementById('lb').style.display='flex';}
+function setF(k,v){filt[k]=v;page=0;render();}
+function prev(){if(page>0){page--;render();}}
+function next(){var p=Math.ceil(filtered().length/PER);if(page<p-1){page++;render();}}
+function filtered(){return all.filter(function(r){
+  if(filt.kind!=='all'&&r.kind!==filt.kind)return false;
+  if(filt.day==='today'&&r.ts.indexOf(today())!==0)return false;
+  return true;});}
+function fbtn(k,v,label){var on=filt[k]===v?' on':'';return '<button class="f'+on+'" onclick="setF(\''+k+'\',\''+v+'\')">'+label+'</button>';}
+function bar(){
+  var h=fbtn('kind','all','全部')+fbtn('kind','预约单','预约单')+fbtn('kind','实时单','实时单');
+  h+=fbtn('day','all','全部日期')+fbtn('day','today','今天');
+  h+='<button class="purge" onclick="purge30()">删30天前</button>';
+  document.getElementById('bar').innerHTML=h;}
+async function del(n){
+  if(!confirm('删除这条记录+截图?'))return;
+  await fetch('/api/didi_del',{method:'POST',body:JSON.stringify({name:n})});
+  await load();}
+async function purge30(){
+  if(!confirm('删除30天前的所有记录+截图?'))return;
+  var r=await fetch('/api/didi_cleanup',{method:'POST',body:JSON.stringify({days:30})});
+  alert(await r.text());await load();}
 async function load(){
   var c=document.getElementById('c');
-  var rs; try{rs=await (await fetch('/api/didi_records')).json();}catch(e){c.innerHTML='<div class=n>fetch err: '+e+'</div>';return;}
-  if(!rs.length){c.innerHTML='<div class=n>暂无记录<br>(等弹单后自动生成)</div>';return;}
-  var h='';
-  for(var i=0;i<rs.length;i++){
-    var r=rs[i];
-    var vc = r.verdict==='grab'?'grab':(r.verdict==='no_grab'?'no_grab':'pass');
-    var img = '';
-    if(r.shot){
-      var u='/api/didi_shot?name='+encodeURIComponent(r.shot);
-      img='<img src="'+u+'" loading="lazy" onclick="openLb(this.src)">';
-    }
-    h += '<div class="card">'+img+'<div class="meta">'
-       + '<div><span class="ts">'+r.ts+'</span><span class="kind">'+r.kind+'</span></div>'
-       + '<div class="price '+vc+'">'+String.fromCharCode(165)+r.price+' · '+(r.verdict||'-')+'</div>'
-       + '<div class="to">'+(r.addrTo||'')+'</div></div></div>';
+  try{all=await (await fetch('/api/didi_records')).json();}catch(e){c.innerHTML='<div class=n>err '+e+'</div>';return;}
+  page=0;render();}
+function render(){
+  bar();
+  var c=document.getElementById('c'),list=filtered();
+  if(!list.length){c.innerHTML='<div class=n>无匹配记录</div>';return;}
+  var pages=Math.max(1,Math.ceil(list.length/PER));
+  if(page>=pages)page=pages-1;
+  var cur=list.slice(page*PER,page*PER+PER),h='';
+  for(var i=0;i<cur.length;i++){
+    var r=cur[i];
+    var vc=r.verdict==='grab'?'grab':(r.verdict==='no_grab'?'no_grab':'pass');
+    var img='';
+    if(r.shot){var u='/api/didi_shot?name='+encodeURIComponent(r.shot);
+      img='<img src="'+u+'" loading="lazy" onclick="openLb(this.src)">';}
+    var delbtn=r.shot?'<button class="del" onclick="del(\''+r.shot+'\')" title="删除">&#128465;</button>':'';
+    h+='<div class="card">'+delbtn+img+'<div class="meta">'
+      +'<div><span class="ts">'+r.ts+'</span><span class="kind">'+r.kind+'</span></div>'
+      +'<div class="price '+vc+'">'+String.fromCharCode(165)+r.price+' \u00b7 '+(r.verdict||'-')+'</div>'
+      +'<div class="to">'+(r.addrTo||'')+'</div></div></div>';
   }
-  c.innerHTML=h;
-}
+  h+='<div class="pg"><button onclick="prev()">上一页</button><span>'+String.fromCharCode(160)+list.length+'条 \u00b7 第'+(page+1)+'/'+pages+'页</span><button onclick="next()">下一页</button></div>';
+  c.innerHTML=h;}
 load();
 </script>
 </body></html>"""
@@ -116,14 +176,20 @@ body{font-family:system-ui;margin:0;background:#0f1115;color:#e6e6e6}
 .h{padding:12px 16px;background:#1a1d24;display:flex;justify-content:space-between;align-items:center}
 .h b{font-size:16px}
 button{background:#2b6fff;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:14px;margin-left:8px}
-textarea{width:calc(100% - 24px);margin:12px;height:60vh;background:#12141a;color:#e6e6e6;border:1px solid #2a2e37;border-radius:8px;padding:12px;font:13px/1.5 ui-monospace,Menlo,monospace;box-sizing:border-box}
-.tip{margin:0 12px;color:#8b93a7;font-size:13px;line-height:1.6}
+textarea{width:calc(100% - 24px);margin:12px;height:62vh;background:#12141a;color:#e6e6e6;border:1px solid #2a2e37;border-radius:8px;padding:12px;font:13px/1.5 ui-monospace,Menlo,monospace;box-sizing:border-box}
+.tip{margin:0 12px;color:#8b93a7;font-size:13px;line-height:1.7}
+.tip b{color:#e6e6e6}
 #msg{color:#4d8bff}
 </style></head>
 <body>
 <div class="h"><b>flow.js 工作流定制</b><span><span id="msg"></span><button onclick="load()">重新载入</button><button onclick="save()">保存(下一单生效)</button></span></div>
-<p class="tip">原语：<b>onCard(card)</b> 收到卡片入口；<b>card</b> 有 price/distMe/kind/addrTo 等字段；<b>tap("no_grab"|"grab")</b> 点击；<b>screenshot(verdict)</b> 截图+存档；<b>log(msg)</b> 日志。<br>
-保存后下一单自动热加载；语法写错会自动回退上一版，不会影响抢单。</p>
+<p class="tip">
+四个关键字段(在 <b>card</b> 上): <b>price</b>价格 / <b>distMe</b>距我(km) / <b>timeText</b>时间 / <b>addrFrom</b>出发地<br>
+时间: <b>timeInfo(card.timeText)</b> 返回 {day:'今天'|'明天'|'后天', hour, min}<br>
+常量集中在 <b>TH</b>: minPrice不抢价 / grabPrice抢单价 / grabPrice2+grabDist2近单抢 / skipHours当天时间段不抢 / skipAddr出发地关键词不抢<br>
+原语: <b>tap('no_grab'|'grab')</b> 点击 / <b>screenshot(v)</b> 截图存档 / <b>log(m)</b> 日志<br>
+例: 当天12~16点不抢 = skipHours:[12,16]；北站/机场不抢 = skipAddr:['北站','机场']；改完保存下一单生效，语法错自动回退上一版。
+</p>
 <textarea id="t" spellcheck="false"></textarea>
 <script>
 async function load(){var t=document.getElementById('t');t.value=await (await fetch('/api/flow_js')).text();document.getElementById('msg').textContent='';}
