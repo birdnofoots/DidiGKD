@@ -99,6 +99,9 @@ data object WorkModeRoute : AppRoute
 @Serializable
 data object SnapshotPageRoute : AppRoute
 
+/** DidiGKD 决策报告页 */
+data object DidiReportRoute : AppRoute
+
 @Serializable
 data class SnapshotPreviewRoute(
     val snapshotId: Long,
