@@ -22,6 +22,7 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import li.gkd.app.didi.registerDidiWebRoutes
 import li.gkd.app.inspection.InspectionException
 import li.gkd.app.inspection.InspectionFailure
 import li.gkd.app.model.ActionResult
