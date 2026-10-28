@@ -36,7 +36,8 @@ class DidiFlowHost : FlowHost {
         return try {
             val bmp: Bitmap? = runBlocking { A11yService.instance?.screenshot() }
             val v = toVerdict(verdict)
-            val name = DidiArchiver.archive(c, v, bmp, force = (v == DidiVerdict.GrabOk))
+            // GrabOk 走 DidiArchiver 内部的60秒独立去重; force 仅用于绕过15秒(现不再需要)
+            val name = DidiArchiver.archive(c, v, bmp, force = false)
             bmp?.recycle()
             name ?: ""
         } catch (e: Exception) {
