@@ -53,6 +53,7 @@ import li.gkd.app.ui.navigation.CrashReportRoute
 import li.gkd.app.ui.navigation.ExternalCallsRoute
 import li.gkd.app.ui.navigation.QuickSettingsTilesRoute
 import li.gkd.app.ui.navigation.SnapshotPageRoute
+import li.gkd.app.ui.navigation.DidiReportRoute
 import li.gkd.app.ui.navigation.SnapshotSettingsRoute
 import li.gkd.app.ui.platform.UiHost
 import li.gkd.app.ui.style.TABULAR_NUMBERS_FONT_FEATURE
@@ -277,6 +278,11 @@ fun AdvancedPage(
             GkSettingItem(
                 title = "控制流 flow.js",
                 subtitle = "热更新: 改文件后下一单生效, 语法错自动回退上一版",
+            )
+            GkSettingItem(
+                title = "决策报告",
+                subtitle = "查看每单的截图/价格/决策(无需网页)",
+                onClick = { mainVm.navigator.navigate(DidiReportRoute) },
             )
             GkPageBottomSpace()
         }

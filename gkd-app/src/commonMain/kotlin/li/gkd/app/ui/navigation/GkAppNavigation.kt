@@ -72,6 +72,7 @@ fun GkAppNavigation(
                 BlockA11yAppListRoute -> BlockA11yAppListPage(host)
                 EditBlockAppListRoute -> AppWhitelistPage(host)
                 SnapshotPageRoute -> SnapshotPage(host)
+                DidiReportRoute -> li.gkd.app.ui.didi.DidiReportPage()
                 HomeRoute -> HomePage(host)
                 ActionToastRoute -> ActionToastPage(host)
                 NotificationTextRoute -> NotificationTextPage(host)
