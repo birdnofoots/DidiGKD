@@ -14,20 +14,16 @@ import li.gkd.app.ui.didi.DidiReportData
  * DidiGKD 网页报告 + flow.js 远程定制（挂到 GKD 自带 HTTP 服务上）。
  *
  * 端点：
- *   GET  /didi/report          网页报告(自包含 HTML, 浏览器直接看每单截图+决策)
+ *   GET  /didi/report          网页报告(自包含 HTML, 每单截图+决策, 点击截图看全图)
+ *   GET  /didi/flow            flow.js 网页编辑器(改完下一单热生效)
  *   GET  /api/didi_records     JSON 记录列表
- *   GET  /api/didi_shot?name=x 截图文件(captures/下)
+ *   GET  /api/didi_shot?name=x 截图文件(captures/下, 全尺寸)
  *   GET  /api/flow_js          读 flow.js 内容
  *   POST /api/flow_js          写 flow.js(热更新, 下一单生效)
- *
- * [stated] 用户: 报告挂网页比 App 内看方便; flow.js 要能方便定制工作流
  */
 fun Routing.registerDidiWebRoutes() {
-    // 网页报告
-    get("/didi/report") {
-        call.respondText(ContentType.Text.Html) { DIDI_REPORT_HTML }
-    }
-    // 记录 JSON
+    get("/didi/report") { call.respondText(ContentType.Text.Html) { DIDI_REPORT_HTML } }
+    get("/didi/flow") { call.respondText(ContentType.Text.Html) { FLOW_EDITOR_HTML } }
     get("/api/didi_records") {
         val sb = StringBuilder("[")
         var first = true
@@ -39,29 +35,19 @@ fun Routing.registerDidiWebRoutes() {
         sb.append("]")
         call.respondText(ContentType.Application.Json) { sb.toString() }
     }
-    // 截图文件
     get("/api/didi_shot") {
         val name = call.request.queryParameters["name"] ?: ""
-        // 防目录穿越
         if (name.contains("/") || name.contains("..") || name.isEmpty()) {
-            call.respondText("bad name") { ContentType.Text.Plain }
-            return@get
+            call.respondText("bad name") { ContentType.Text.Plain }; return@get
         }
         val f = File(DidiReportData.capturesDir, name)
-        if (f.exists()) call.respondFile(f)
-        else call.respondText("not found") { ContentType.Text.Plain }
+        if (f.exists()) call.respondFile(f) else call.respondText("not found") { ContentType.Text.Plain }
     }
-    // flow.js 网页编辑器
-    get("/didi/flow") {
-        call.respondText(ContentType.Text.Html) { FLOW_EDITOR_HTML }
-    }
-    // 读 flow.js
     get("/api/flow_js") {
         val f = DidiReportData.flowJsFile
         val txt = if (f.exists()) f.readText() else "// flow.js 尚未生成(等第一单触发后自动生成)"
         call.respondText(ContentType.Text.Plain) { txt }
     }
-    // 写 flow.js(热更新)
     post("/api/flow_js") {
         val body = call.receiveText()
         val f = DidiReportData.flowJsFile
@@ -75,23 +61,29 @@ private const val DIDI_REPORT_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DidiGKD 决策报告</title>
 <style>
+*{box-sizing:border-box}
 body{font-family:system-ui;margin:0;background:#0f1115;color:#e6e6e6}
-.h{padding:14px 16px;background:#1a1d24;position:sticky;top:0;display:flex;justify-content:space-between;align-items:center}
+.h{padding:14px 16px;background:#1a1d24;position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;z-index:5}
 .h b{font-size:17px}.h button{background:#2b6fff;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:14px}
-.c{padding:12px;display:flex;flex-direction:column;gap:10px}
+.c{padding:12px;display:flex;flex-direction:column;gap:10px;max-width:720px;margin:0 auto}
 .card{background:#1a1d24;border-radius:12px;padding:10px;display:flex;gap:12px;align-items:center}
-.card img{width:64px;height:64px;object-fit:cover;border-radius:8px;background:#2a2e37;flex:none}
+.card img{width:110px;height:110px;object-fit:cover;border-radius:8px;background:#2a2e37;flex:none;cursor:zoom-in}
 .meta{flex:1;min-width:0}
 .ts{color:#8b93a7;font-size:12px}.kind{color:#4d8bff;font-size:12px;margin-left:8px}
 .price{font-size:18px;font-weight:700;margin:2px 0}
 .grab{color:#4d8bff}.no_grab{color:#c58bff}.pass{color:#8b93a7}
 .to{color:#8b93a7;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .n{color:#8b93a7;text-align:center;padding:40px}
+#lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:99;justify-content:center;align-items:center;cursor:zoom-out}
+#lb img{max-width:100%;max-height:100%;object-fit:contain}
 </style></head>
 <body>
 <div class="h"><b>DidiGKD 决策报告</b><button onclick="load()">刷新</button></div>
 <div class="c" id="c"><div class="n">加载中...</div></div>
+<div id="lb" onclick="closeLb()"><img id="lbi"></div>
 <script>
+function openLb(src){document.getElementById('lbi').src=src;document.getElementById('lb').style.display='flex';}
+function closeLb(){document.getElementById('lb').style.display='none';}
 async function load(){
   var c=document.getElementById('c');
   var rs; try{rs=await (await fetch('/api/didi_records')).json();}catch(e){c.innerHTML='<div class=n>fetch err: '+e+'</div>';return;}
@@ -101,10 +93,13 @@ async function load(){
     var r=rs[i];
     var vc = r.verdict==='grab'?'grab':(r.verdict==='no_grab'?'no_grab':'pass');
     var img = '';
-    if(r.shot){ img='<img src="/api/didi_shot?name='+encodeURIComponent(r.shot)+'" onerror="this.style.visibility=\'hidden\'">'; }
+    if(r.shot){
+      var u='/api/didi_shot?name='+encodeURIComponent(r.shot);
+      img='<img src="'+u+'" loading="lazy" onclick="openLb(this.src)">';
+    }
     h += '<div class="card">'+img+'<div class="meta">'
        + '<div><span class="ts">'+r.ts+'</span><span class="kind">'+r.kind+'</span></div>'
-       + '<div class="price '+vc+'">\u00a5'+r.price+' \u00b7 '+(r.verdict||'-')+'</div>'
+       + '<div class="price '+vc+'">'+String.fromCharCode(165)+r.price+' · '+(r.verdict||'-')+'</div>'
        + '<div class="to">'+(r.addrTo||'')+'</div></div></div>';
   }
   c.innerHTML=h;
@@ -131,7 +126,7 @@ textarea{width:calc(100% - 24px);margin:12px;height:60vh;background:#12141a;colo
 保存后下一单自动热加载；语法写错会自动回退上一版，不会影响抢单。</p>
 <textarea id="t" spellcheck="false"></textarea>
 <script>
-async function load(){const t=document.getElementById('t');t.value=await (await fetch('/api/flow_js')).text();document.getElementById('msg').textContent='';}
-async function save(){const t=document.getElementById('t');const r=await fetch('/api/flow_js',{method:'POST',body:t.value});document.getElementById('msg').textContent=await r.text();}
+async function load(){var t=document.getElementById('t');t.value=await (await fetch('/api/flow_js')).text();document.getElementById('msg').textContent='';}
+async function save(){var t=document.getElementById('t');var r=await fetch('/api/flow_js',{method:'POST',body:t.value});document.getElementById('msg').textContent=await r.text();}
 load();
 </script></body></html>"""
