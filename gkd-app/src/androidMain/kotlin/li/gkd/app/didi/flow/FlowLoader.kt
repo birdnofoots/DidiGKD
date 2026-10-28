@@ -31,8 +31,14 @@ object FlowLoader {
     private fun readDisk(): String? = try {
         val f = flowFile
         if (!f.exists()) {
-            f.parentFile?.mkdirs()
-            f.writeText(DefaultFlow.CODE)
+            try {
+                f.parentFile?.mkdirs()
+                f.writeText(DefaultFlow.CODE)
+            } catch (e: Exception) {
+                try { f.delete() } catch (_: Exception) {}
+                f.parentFile?.mkdirs()
+                f.writeText(DefaultFlow.CODE)
+            }
             Log.i(TAG, "flow.js 不存在, 已生成默认脚本: ${f.absolutePath}")
         }
         f.readText()
