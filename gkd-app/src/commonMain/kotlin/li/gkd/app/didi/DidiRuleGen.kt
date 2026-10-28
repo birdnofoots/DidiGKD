@@ -146,8 +146,8 @@ function gen(){
       // 抢单: ①同卡15秒内只点一次(actionCd:0会反复触发) ②检查点击结果(失败不做抢中检测, 防误报)
       s += 'var __k=(card.addrFrom||"")+"|"+(card.addrTo||"")+"|"+(card.timeText||"");';
       s += 'if(__g[__k]&&(Date.now()-__g[__k])<15000){log("rule'+idx+' already_tapped");return;}';
-      s += '__g[__k]=Date.now();';
-      s += 'if(tap(a)){grabCheck(card);}else{log("rule'+idx+' tap_failed");}';
+      // ★只有点击成功才标记"已点"——失败要允许重试(按钮只在短暂窗口可点, 08:26实测第3次才ok=true)
+      s += 'if(tap(a)){__g[__k]=Date.now();grabCheck(card);}else{log("rule'+idx+' tap_failed");}';
     } else s += 'tap(a);';
     s += 'return;}';
     return s;
