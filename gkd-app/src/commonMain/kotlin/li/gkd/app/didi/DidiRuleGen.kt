@@ -131,7 +131,9 @@ function gen(){
   L.push('// 由规则生成器生成 '+new Date().toISOString().slice(0,19).replace('T',' '));
   L.push('function timeInfo(t){var e={day:"",hour:-1,min:-1,month:-1,dom:-1};if(!t)return e;var s=String(t);var m=s.match(/^(今天|明天|后天)[ ]*([0-9]{1,2}):([0-9]{2})/);if(m)return{day:m[1],hour:+m[2],min:+m[3],month:-1,dom:-1};m=s.match(/^([0-9]{1,2})月([0-9]{1,2})日[ ]*([0-9]{1,2}):([0-9]{2})/);if(m)return{day:"",hour:+m[3],min:+m[4],month:+m[1],dom:+m[2]};return e;}');
   L.push('function isToday(ti){if(ti.day==="今天")return true;if(ti.month>0){var n=new Date();return ti.month===(n.getMonth()+1)&&ti.dom===n.getDate();}return false;}');
-  L.push('function grabCheck(card){wait('+Number(V('gwm'))+');if(screenHas("接乘客")||(card.timeText&&screenHas(card.timeText)&&card.addrTo&&screenHas(card.addrTo))){log("GRAB_OK "+card.timeText+" -> "+card.addrTo);'+(sh?'screenshot("grab_ok");':'')+'}else{log("GRAB_MISS");}}');
+  L.push('function grabCheck(card){wait('+Number(V('gwm'))+');var onPage=screenHas("接乘客");var mFrom=!!card.addrFrom&&screenHas(card.addrFrom);var mTo=!!card.addrTo&&screenHas(card.addrTo);if(onPage&&mFrom&&mTo){log("GRAB_OK "+card.timeText+" "+card.addrFrom+" -> "+card.addrTo);screenshot("grab_ok");}else{log("GRAB_MISS onPage="+onPage+" from="+mFrom+" to="+mTo);}}');
+  // 抢单"点一次"状态: 同一张卡(出发地|目的地|时间)15秒内只点一次
+  L.push('var __g={};');
   L.push('onCard(function(card){');
   L.push('  var ti=timeInfo(card.timeText);var price=Number(card.price);var dist=Number(card.distMe);');
   var idx=1;
@@ -140,9 +142,13 @@ function gen(){
     var s = '  if(' + cond + '){var a="' + action + '";';
     if(shot) s += 'screenshot(a);';
     s += 'log("rule' + idx + ' ' + action + (extra ? extra + ');' : '");');
-    // ★抢单必须检查点击结果: tap 失败(按钮已进抢单中/消失)则不做抢中检测, 否则会误报 GRAB_OK
-    if(action === 'grab') s += 'if(tap(a)){grabCheck(card);}else{log("rule'+idx+' tap_failed");}';
-    else s += 'tap(a);';
+    if(action === 'grab'){
+      // 抢单: ①同卡15秒内只点一次(actionCd:0会反复触发) ②检查点击结果(失败不做抢中检测, 防误报)
+      s += 'var __k=(card.addrFrom||"")+"|"+(card.addrTo||"")+"|"+(card.timeText||"");';
+      s += 'if(__g[__k]&&(Date.now()-__g[__k])<15000){log("rule'+idx+' already_tapped");return;}';
+      s += '__g[__k]=Date.now();';
+      s += 'if(tap(a)){grabCheck(card);}else{log("rule'+idx+' tap_failed");}';
+    } else s += 'tap(a);';
     s += 'return;}';
     return s;
   }
