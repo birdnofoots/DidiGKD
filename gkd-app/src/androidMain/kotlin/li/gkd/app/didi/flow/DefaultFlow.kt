@@ -3,7 +3,7 @@ package li.gkd.app.didi.flow
 /**
  * 默认 flow.js（规则生成器产出，随 APK 内置作兜底）。
  * 抢单三重保障（[stated] 用户要求）：
- *  ① 点一次：同一张卡(出发地|目的地|时间)15秒内只点一次(__g 状态)
+ *  ① 点一次：同一张卡**点击成功后**15秒内不再点；**点击失败允许重试**(按钮只在短暂窗口可点)
  *  ② 检查点击结果：tap 失败则 log tap_failed，不做抢中检测(防误报)
  *  ③ 抢中判定：接乘客页 AND 出发地 AND 目的地 三者都匹配才算 GRAB_OK
  */
@@ -20,9 +20,9 @@ onCard(function(card){
   // 层2: 低价 <80
   if(!isNaN(price)&&price<80){var a="no_grab";screenshot(a);log("rule2 no_grab price="+price);tap(a);return;}
   // 层3: 近单 距<20且价>100
-  if(!isNaN(dist)&&!isNaN(price)&&dist<20&&price>100){var a="grab";screenshot(a);log("rule3 grab dist="+dist+" price="+price);var __k=(card.addrFrom||"")+"|"+(card.addrTo||"")+"|"+(card.timeText||"");if(__g[__k]&&(Date.now()-__g[__k])<15000){log("rule3 already_tapped");return;}__g[__k]=Date.now();if(tap(a)){grabCheck(card);}else{log("rule3 tap_failed");}return;}
+  if(!isNaN(dist)&&!isNaN(price)&&dist<20&&price>100){var a="grab";screenshot(a);log("rule3 grab dist="+dist+" price="+price);var __k=(card.addrFrom||"")+"|"+(card.addrTo||"")+"|"+(card.timeText||"");if(__g[__k]&&(Date.now()-__g[__k])<15000){log("rule3 already_tapped");return;}if(tap(a)){__g[__k]=Date.now();grabCheck(card);}else{log("rule3 tap_failed");}return;}
   // 层4: 高价 >200
-  if(!isNaN(price)&&price>200){var a="grab";screenshot(a);log("rule4 grab price="+price);var __k=(card.addrFrom||"")+"|"+(card.addrTo||"")+"|"+(card.timeText||"");if(__g[__k]&&(Date.now()-__g[__k])<15000){log("rule4 already_tapped");return;}__g[__k]=Date.now();if(tap(a)){grabCheck(card);}else{log("rule4 tap_failed");}return;}
+  if(!isNaN(price)&&price>200){var a="grab";screenshot(a);log("rule4 grab price="+price);var __k=(card.addrFrom||"")+"|"+(card.addrTo||"")+"|"+(card.timeText||"");if(__g[__k]&&(Date.now()-__g[__k])<15000){log("rule4 already_tapped");return;}if(tap(a)){__g[__k]=Date.now();grabCheck(card);}else{log("rule4 tap_failed");}return;}
   // 其余 pass(只记录不点)
   screenshot("pass");log("pass price="+price+" dist="+dist+" time="+card.timeText);
 });"""
