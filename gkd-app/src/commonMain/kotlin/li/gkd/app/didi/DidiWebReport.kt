@@ -23,6 +23,7 @@ import li.gkd.app.ui.didi.DidiReportData
 fun Routing.registerDidiWebRoutes() {
     get("/didi/report") { call.respondText(ContentType.Text.Html) { DIDI_REPORT_HTML } }
     get("/didi/flow") { call.respondText(ContentType.Text.Html) { FLOW_EDITOR_HTML } }
+    get("/didi/control") { call.respondText(ContentType.Text.Html) { CONTROL_HTML } }
     get("/api/didi_records") {
         val sb = StringBuilder("[")
         var first = true
@@ -62,6 +63,12 @@ fun Routing.registerDidiWebRoutes() {
             if (removed > 0) f.writeText(keep.joinToString("\n") + "\n")
         }
         call.respondText(ContentType.Text.Plain) { "removed=" + removed + " shotDel=" + shotDel }
+    }
+    // 状态查询: 当前是否真实点击
+    get("/api/didi_status") {
+        call.respondText(ContentType.Text.Plain) {
+            "tap_enabled=" + li.gkd.app.didi.DidiConfig.tapEnabled.value
+        }
     }
     get("/api/flow_js") {
         val f = DidiReportData.flowJsFile
@@ -209,3 +216,65 @@ async function load(){var t=document.getElementById('t');t.value=await (await fe
 async function save(){var t=document.getElementById('t');var r=await fetch('/api/flow_js',{method:'POST',body:t.value});document.getElementById('msg').textContent=await r.text();}
 load();
 </script></body></html>"""
+
+
+private const val CONTROL_HTML = """<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DidiGKD 控制面板</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:system-ui;margin:0;background:#0f1115;color:#e6e6e6;padding-bottom:60px}
+.h{padding:14px 16px;background:#1a1d24;position:sticky;top:0;z-index:5}
+.h b{font-size:17px}
+.card{background:#1a1d24;border-radius:12px;padding:14px;margin:10px 12px}
+.card h3{margin:0 0 10px;font-size:14px;color:#4d8bff}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.row label{color:#8b93a7;font-size:13px;min-width:60px}
+input[type=number]{background:#12141a;color:#e6e6e6;border:1px solid #2a2e37;border-radius:6px;padding:6px 8px;font-size:14px;width:90px}
+button{background:#2b6fff;color:#fff;border:0;padding:9px 16px;border-radius:8px;font-size:14px;cursor:pointer}
+button.r{background:#7a2330}
+button.g{background:#1f7a3d}
+.msg{margin:10px 12px;padding:10px;border-radius:8px;font-size:13px;background:#152a1c;color:#8fe0a8;min-height:18px}
+pre{margin:10px 12px;background:#12141a;border:1px solid #2a2e37;border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,monospace;color:#8b93a7;white-space:pre-wrap;word-break:break-all}
+</style></head>
+<body>
+<div class="h"><b>DidiGKD 控制面板</b></div>
+<div class="msg" id="msg">就绪</div>
+
+<div class="card"><h3>真实点击开关</h3>
+<div class="row">
+<button class="g" onclick="tap(true)">开(真点击)</button>
+<button class="r" onclick="tap(false)">关(影子模式)</button>
+<button onclick="stat()">查状态</button>
+</div>
+<div class="row" style="color:#8b93a7;font-size:12px">关=只决策+存档不点击(P4对账用)</div>
+</div>
+
+<div class="card"><h3>存档清理</h3>
+<div class="row"><label>删N天前</label><input type="number" id="days" value="30"><button class="r" onclick="clean()">执行清理</button></div>
+<div class="row" style="color:#8b93a7;font-size:12px">截图+记录联动删(不留孤儿)</div>
+</div>
+
+<div class="card"><h3>原始响应</h3><pre id="out">(尚未请求)</pre></div>
+
+<script>
+function show(t,m){document.getElementById('msg').textContent=t;if(m)document.getElementById('out').textContent=m;}
+async function tap(en){
+  show('切换中...');
+  var r=await fetch('/api/didi_tap',{method:'POST',body:JSON.stringify({enabled:en})});
+  show(en?'已开真实点击':'已切影子模式', await r.text());
+}
+async function clean(){
+  var d=document.getElementById('days').value||'30';
+  if(!confirm('删除 '+d+' 天前的所有记录+截图?'))return;
+  show('清理中...');
+  var r=await fetch('/api/didi_cleanup',{method:'POST',body:JSON.stringify({days:Number(d)})});
+  show('已清理', await r.text());
+}
+async function stat(){
+  show('查询中...');
+  var r=await fetch('/api/didi_status');
+  show('当前状态', await r.text());
+}
+</script>
+</body></html>"""
