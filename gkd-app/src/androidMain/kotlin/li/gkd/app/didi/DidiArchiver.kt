@@ -29,6 +29,17 @@ object DidiArchiver {
         return false
     }
 
+    // 抢中截图(grab_ok)独立去重: 同卡 60 秒内只存一张
+    // (actionCd:0 时同卡会反复触发, 若 grab_ok 不去重会连出多张抢中截图 —— 实测 218.45 单连出2张)
+    private val lastGrabOkSig = java.util.concurrent.atomic.AtomicReference<Pair<String, Long>?>(null)
+    private fun dupGrabOk(sig: String): Boolean {
+        val now = System.currentTimeMillis()
+        val prev = lastGrabOkSig.get()
+        if (prev != null && prev.first == sig && now - prev.second < 60000) return true
+        lastGrabOkSig.set(Pair(sig, now))
+        return false
+    }
+
     private fun root(): File {
         // 优先 App 外部私有目录(无权限问题); 失败退回内部 filesDir
         val base = try {
@@ -48,8 +59,12 @@ object DidiArchiver {
      */
     fun archive(card: DidiCard, verdict: DidiVerdict, bmp: Bitmap?, force: Boolean = false): String {
         val sig = "${card.price}|${card.distMe}|${card.timeText}"
-        // force=true(如抢中确认 grab_ok)绕过去重, 因为是同卡几秒后的第二次截图
-        if (!force && dup(sig)) return ""          // 同卡 15s 内重复触发 -> 跳过存档
+        if (verdict == DidiVerdict.GrabOk) {
+            // 抢中截图: 独立60秒去重(同卡反复触发只存一张)
+            if (dupGrabOk(sig)) return ""
+        } else {
+            if (!force && dup(sig)) return ""      // 同卡 15s 内重复触发 -> 跳过存档
+        }
         return try {
             val dir = root()
             val capDir = File(dir, "captures"); capDir.mkdirs()

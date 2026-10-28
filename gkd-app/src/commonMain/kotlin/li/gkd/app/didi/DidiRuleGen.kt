@@ -140,8 +140,9 @@ function gen(){
     var s = '  if(' + cond + '){var a="' + action + '";';
     if(shot) s += 'screenshot(a);';
     s += 'log("rule' + idx + ' ' + action + (extra ? extra + ');' : '");');
-    s += 'tap(a);';
-    if(action === 'grab') s += 'grabCheck(card);';
+    // ★抢单必须检查点击结果: tap 失败(按钮已进抢单中/消失)则不做抢中检测, 否则会误报 GRAB_OK
+    if(action === 'grab') s += 'if(tap(a)){grabCheck(card);}else{log("rule'+idx+' tap_failed");}';
+    else s += 'tap(a);';
     s += 'return;}';
     return s;
   }
