@@ -45,6 +45,7 @@ data class DidiRecord(
     val ts: String, val price: String, val kind: String,
     val verdict: String, val shot: String,
     val addrFrom: String, val addrTo: String,
+    val distMe: String, val distAll: String, val timeText: String,
 )
 
 object DidiReportData {
@@ -72,6 +73,8 @@ object DidiReportData {
                         ts = ts, price = field(l, "price"), kind = field(l, "kind"),
                         verdict = field(l, "verdict"), shot = field(l, "shot"),
                         addrFrom = field(l, "addr_from"), addrTo = field(l, "addr_to"),
+                        distMe = field(l, "dist_me"), distAll = field(l, "dist_all"),
+                        timeText = field(l, "time_text"),
                     )
                 }.asReversed()
         } catch (e: Exception) { emptyList() }
