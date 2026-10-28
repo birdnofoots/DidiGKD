@@ -33,9 +33,12 @@ sealed class DidiVerdict {
     data object WaitPrice : DidiVerdict()
     /** 不处理（实时单只记录不点 / 价格缺失 / 条件不满足） */
     data object Pass : DidiVerdict()
+    /** 抢单确认成功（点击后进入接乘客页）→ 抢中状态 */
+    data object GrabOk : DidiVerdict()
 
     val name: String get() = when (this) {
         Grab -> "grab"; NoGrab -> "no_grab"; WaitPrice -> "wait_price"; Pass -> "pass"
+        GrabOk -> "grab_ok"
     }
 }
 

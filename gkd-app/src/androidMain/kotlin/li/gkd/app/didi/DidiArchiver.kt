@@ -46,9 +46,10 @@ object DidiArchiver {
      * 存一条决策记录 + 截图。
      * @return 记录的截图文件名(空=无图)
      */
-    fun archive(card: DidiCard, verdict: DidiVerdict, bmp: Bitmap?): String {
+    fun archive(card: DidiCard, verdict: DidiVerdict, bmp: Bitmap?, force: Boolean = false): String {
         val sig = "${card.price}|${card.distMe}|${card.timeText}"
-        if (dup(sig)) return ""          // 同卡 15s 内重复触发 -> 跳过存档
+        // force=true(如抢中确认 grab_ok)绕过去重, 因为是同卡几秒后的第二次截图
+        if (!force && dup(sig)) return ""          // 同卡 15s 内重复触发 -> 跳过存档
         return try {
             val dir = root()
             val capDir = File(dir, "captures"); capDir.mkdirs()
