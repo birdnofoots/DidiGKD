@@ -26,6 +26,7 @@ class DidiFlowHost : FlowHost {
     private fun toVerdict(s: String): DidiVerdict = when (s) {
         "no_grab" -> DidiVerdict.NoGrab
         "grab" -> DidiVerdict.Grab
+        "grab_ok" -> DidiVerdict.GrabOk
         "wait_price" -> DidiVerdict.WaitPrice
         else -> DidiVerdict.Pass
     }
@@ -34,7 +35,8 @@ class DidiFlowHost : FlowHost {
         val c = card ?: return ""
         return try {
             val bmp: Bitmap? = runBlocking { A11yService.instance?.screenshot() }
-            val name = DidiArchiver.archive(c, toVerdict(verdict), bmp)
+            val v = toVerdict(verdict)
+            val name = DidiArchiver.archive(c, v, bmp, force = (v == DidiVerdict.GrabOk))
             bmp?.recycle()
             name ?: ""
         } catch (e: Exception) {
@@ -63,5 +65,21 @@ class DidiFlowHost : FlowHost {
 
     override fun flowLog(msg: String) {
         android.util.Log.i("DidiGKD", "flow.log $msg")
+    }
+
+    override fun flowWait(ms: Int) {
+        try { Thread.sleep(ms.toLong()) } catch (e: Exception) {}
+    }
+
+    override fun flowReadText(vid: String): String {
+        // 读实时窗口(非卡片节点), 抢单后卡片已消失, 需重新取 windowNodeInfo
+        val w = A11yService.instance?.windowNodeInfo ?: return ""
+        val n = DidiCardExtractor.nodeByVid(w, vid) ?: return ""
+        return n.text?.toString() ?: ""
+    }
+
+    override fun flowScreenHas(text: String): Boolean {
+        val w = A11yService.instance?.windowNodeInfo ?: return false
+        return DidiCardExtractor.allText(w).contains(text)
     }
 }

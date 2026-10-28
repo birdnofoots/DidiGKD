@@ -109,6 +109,22 @@ object DidiCardExtractor {
 
     // ---------- 节点查找 ----------
 
+    /** 公开: 按 viewId 后缀找节点(供 flow.js readText 原语用) */
+    fun nodeByVid(root: AccessibilityNodeInfo?, vid: String): AccessibilityNodeInfo? = findByVid(root, vid)
+
+    /** 公开: 拼接整棵节点树所有文字(含 contentDescription), 供 flow.js screenHas 判断当前页面 */
+    fun allText(root: AccessibilityNodeInfo?): String {
+        val sb = StringBuilder()
+        fun walk(n: AccessibilityNodeInfo?) {
+            n ?: return
+            n.text?.let { sb.append(it).append(' ') }
+            n.contentDescription?.let { sb.append(it).append(' ') }
+            for (i in 0 until n.childCount) walk(n.getChild(i))
+        }
+        walk(root)
+        return sb.toString()
+    }
+
     private fun findByVid(root: AccessibilityNodeInfo?, vidSuffix: String): AccessibilityNodeInfo? {
         root ?: return null
         if (matchesVid(root, vidSuffix)) return root

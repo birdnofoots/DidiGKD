@@ -19,6 +19,12 @@ interface FlowHost {
     fun flowScreenshot(verdict: String): String
     /** 写日志 */
     fun flowLog(msg: String)
+    /** 延时 ms(阻塞), 用于抢中检测等 */
+    fun flowWait(ms: Int)
+    /** 读当前窗口某 viewId 的文字(非卡片节点, 是实时屏幕), 找不到返回 "" */
+    fun flowReadText(vid: String): String
+    /** 当前窗口全部文字是否含某字符串(判断是否进入某页面, 如"接乘客") */
+    fun flowScreenHas(text: String): Boolean
 }
 
 /**
@@ -75,6 +81,25 @@ class FlowEngine(private val host: FlowHost) {
                     val m = if (args.isNotEmpty()) Context.toString(args[0]) else ""
                     host.flowLog(m)
                     return Undefined.instance
+                }
+            })
+            so.put("wait", sc, object : BaseFunction() {
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<out Any>): Any? {
+                    val ms = if (args.isNotEmpty()) Context.toNumber(args[0]).toInt() else 0
+                    host.flowWait(ms.coerceIn(0, 15000))
+                    return Undefined.instance
+                }
+            })
+            so.put("readText", sc, object : BaseFunction() {
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<out Any>): Any? {
+                    val vid = if (args.isNotEmpty()) Context.toString(args[0]) else ""
+                    return host.flowReadText(vid)
+                }
+            })
+            so.put("screenHas", sc, object : BaseFunction() {
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<out Any>): Any? {
+                    val t = if (args.isNotEmpty()) Context.toString(args[0]) else ""
+                    return host.flowScreenHas(t)
                 }
             })
 

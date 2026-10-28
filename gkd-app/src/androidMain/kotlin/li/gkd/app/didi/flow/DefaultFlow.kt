@@ -2,9 +2,9 @@ package li.gkd.app.didi.flow
 
 /**
  * 默认 flow.js —— 滴滴车主控制流（P3）。
- * 四个关键字段可组合条件：price/distMe/timeText/addrFrom
- * timeInfo 支持四种时间格式(今天/明天/后天HH:MM + MM月DD日HH:MM)
- * 常量集中在 TH，网页编辑器 http://<ip>:<port>/didi/flow 可改，保存后下一单生效。
+ * 四字段条件(price/distMe/timeText/addrFrom) + 抢单抢中检测(grab_ok)。
+ * 新原语: wait(ms)/readText(vid)/screenHas(text)。
+ * timeInfo 支持四种时间格式(今天/明天/后天HH:MM + MM月DD日HH:MM)。
  */
 object DefaultFlow {
     const val CODE = """// ===== 可调阈值(按需改, 网页保存后下一单生效) =====
@@ -17,6 +17,8 @@ var TH = {
   skipHours:  [12, 16],
   // 出发地含任一关键词 → no_grab 不抢; 设 [] 关闭
   skipAddr:   ['北站', '机场', '口岸'],
+  // 抢单后等几秒检测是否抢中(进入接乘客页)
+  grabWaitMs: 3000,
 };
 
 // 解析 timeText -> {day, hour, min, month, dom}
@@ -40,10 +42,10 @@ function isToday(ti) {
 }
 
 onCard(function (card) {
-  var price = Number(card.price);          // 价格
-  var dist  = Number(card.distMe);         // 距我的距离(km)
-  var ti    = timeInfo(card.timeText);     // 时间
-  var from  = String(card.addrFrom || ''); // 出发地
+  var price = Number(card.price);
+  var dist  = Number(card.distMe);
+  var ti    = timeInfo(card.timeText);
+  var from  = String(card.addrFrom || '');
 
   var verdict = 'pass';
   if (card.kind !== '实时单' && !isNaN(price)) {
@@ -58,12 +60,31 @@ onCard(function (card) {
     else if (price > TH.grabPrice2 && !isNaN(dist) && dist < TH.grabDist2) verdict = 'grab';
   }
 
+  // 一卡一图 + 记录
   var shot = screenshot(verdict);
   log(JSON.stringify({ price: card.price, distMe: card.distMe, time: card.timeText,
                        kind: card.kind, verdict: verdict, shot: shot }));
 
-  if (verdict === 'no_grab') tap('no_grab');
-  else if (verdict === 'grab') tap('grab');
+  // 点击 + 抢单抢中检测
+  if (verdict === 'no_grab') {
+    tap('no_grab');
+  } else if (verdict === 'grab') {
+    var ok = tap('grab');
+    if (ok) {
+      // 抢单后等几秒, 检测是否进入接乘客页(抢中)
+      wait(TH.grabWaitMs);
+      var onPickup = screenHas('接乘客');
+      // 二次确认: 接乘客页通常仍显示 时间/目的地, 与卡片匹配则更确定
+      var matchTime = !!card.timeText && screenHas(card.timeText);
+      var matchTo   = !!card.addrTo   && screenHas(card.addrTo);
+      if (onPickup || (matchTime && matchTo)) {
+        log('GRAB_OK time=' + card.timeText + ' from=' + card.addrFrom + ' to=' + card.addrTo);
+        screenshot('grab_ok');   // 抢中截图(绕过15秒去重, 存为 grab_ok 状态)
+      } else {
+        log('GRAB_MISS no-pickup-page-after-' + TH.grabWaitMs + 'ms');
+      }
+    }
+  }
 });
 """
 }
