@@ -511,6 +511,24 @@ object SubscriptionRepository {
         return files.load(id)
     }
 
+    /** 移除订阅里所有 `action: "didi"` 的规则（发行版：didi 动作只走内置本地订阅）。 */
+    private fun stripDidiAction(sub: RawSubscription): RawSubscription {
+        if (sub.apps.none { a -> a.groups.any { g -> g.rules.any { it.action == "didi" } } }) {
+            return sub
+        }
+        return sub.copy(
+            apps = sub.apps.map { app ->
+                app.copy(
+                    groups = app.groups.map { g ->
+                        val kept = g.rules.filter { it.action != "didi" }
+                        // 规则全被剥掉就丢掉整个组，免得留下空壳
+                        if (kept.size == g.rules.size) g else g.copy(rules = kept)
+                    }.filter { it.rules.isNotEmpty() },
+                )
+            }.filter { it.groups.isNotEmpty() },
+        )
+    }
+
     private fun refreshRawSubscriptions(
         items: List<SubsItem>,
         previous: SubscriptionSnapshot = snapshotFlow.value.value ?: SubscriptionSnapshot(),
@@ -530,7 +548,12 @@ object SubscriptionRepository {
                 if (initialName != null && files.readBytes(item.id) == null) {
                     files.write(RawSubscription(item.id, initialName, 0))
                 }
-                subscriptions[item.id] = load(item.id)
+                val loaded = load(item.id)
+                // 发行版守卫: didi 动作只允许来自本地订阅(内置规则)。
+                // 非本地订阅里的 didi 规则一律剥除 —— 官方 GKD 不认识该动作会 fallback 成 click 误点,
+                // 而且这属于核心链路, 不该让用户从任意 URL 覆盖。
+                subscriptions[item.id] = if (item.id == SubscriptionIds.LOCAL) loaded
+                else stripDidiAction(loaded)
                 errors.remove(item.id)
             } catch (e: Exception) {
                 errors[item.id] = e
