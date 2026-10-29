@@ -6,6 +6,7 @@ import kotlinx.coroutines.runBlocking
 import li.gkd.app.didi.DidiArchiver
 import li.gkd.app.didi.DidiCard
 import li.gkd.app.didi.DidiCardExtractor
+import li.gkd.app.didi.DidiTreeDump
 import li.gkd.app.didi.DidiVerdict
 import li.gkd.app.service.A11yService
 
@@ -82,5 +83,10 @@ class DidiFlowHost : FlowHost {
     override fun flowScreenHas(text: String): Boolean {
         val w = A11yService.instance?.windowNodeInfo ?: return false
         return DidiCardExtractor.allText(w).contains(text)
+    }
+
+    override fun flowDumpTree(): String {
+        val w = A11yService.instance?.windowNodeInfo ?: return ""
+        return DidiTreeDump.dump(w)
     }
 }

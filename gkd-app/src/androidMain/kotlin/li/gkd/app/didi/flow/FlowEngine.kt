@@ -25,6 +25,8 @@ interface FlowHost {
     fun flowReadText(vid: String): String
     /** 当前窗口全部文字是否含某字符串(判断是否进入某页面, 如"接乘客") */
     fun flowScreenHas(text: String): Boolean
+    /** 导出当前窗口的无障碍节点树为 JSON(含层级 d/坐标 b/viewId)。用于版本差异采集。 */
+    fun flowDumpTree(): String
 }
 
 /**
@@ -101,6 +103,10 @@ class FlowEngine(private val host: FlowHost) {
                     val t = if (args.isNotEmpty()) Context.toString(args[0]) else ""
                     return host.flowScreenHas(t)
                 }
+            })
+            so.put("dumpTree", sc, object : BaseFunction() {
+                override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<out Any>): Any? =
+                    host.flowDumpTree()
             })
 
             c.evaluateString(sc, code, "flow.js", 1, null)
