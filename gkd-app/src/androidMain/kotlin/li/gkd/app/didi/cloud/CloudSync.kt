@@ -79,6 +79,18 @@ object CloudSync {
         }
     }
 
+    /** 上传一份界面快照（JSON 字节）。用于版本差异采集，与日志上传互不干扰。 */
+    fun uploadSnap(payload: ByteArray): Boolean {
+        if (!DidiCloudConfig.ready) return false
+        val r = post("/api/v1/snap", payload, "application/json; charset=utf-8")
+        val ok = r.code in 200..299
+        if (!ok) {
+            failures++
+            Log.w(TAG, "上传快照失败 HTTP ${r.code} ${r.body.take(120)}")
+        }
+        return ok
+    }
+
     /** 立刻同步一轮（设置页/HTTP 端点可手动触发）。返回本轮是否传了东西。 */
     fun syncNow(): Boolean = syncCycle()
 

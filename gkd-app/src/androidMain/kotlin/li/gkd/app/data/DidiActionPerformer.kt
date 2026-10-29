@@ -52,6 +52,9 @@ data object DidiActionPerformer : ActionPerformer("didi") {
 
         val tapped = flowHost.tapped
         Log.i(TAG, "flow.done tapped=$tapped err=${flowEngine.lastError}")
+
+        // S3 版本差异采集: 没见过的 (appId, versionCode) 才拍一张, 异步不阻塞
+        li.gkd.app.didi.cloud.DidiSnap.maybeCapture()
         return ActionResult(action = action, result = tapped)
     }
 }
