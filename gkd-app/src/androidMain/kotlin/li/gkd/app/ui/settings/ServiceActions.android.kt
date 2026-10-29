@@ -104,3 +104,6 @@ actual fun trackServiceRunning() =
 
 // The Android service already applies port changes in its lifecycle-owned collector.
 actual fun UiHost.httpServerPortChanged() = Unit
+
+/** DidiGKD 云端同步手动触发（设置页「立即同步一次」） */
+actual fun didiCloudSyncNow(): Boolean = li.gkd.app.didi.cloud.CloudSync.syncNow()

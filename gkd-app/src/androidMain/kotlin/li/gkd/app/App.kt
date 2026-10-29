@@ -267,6 +267,8 @@ class App : Application() {
             SubscriptionRepository.initialize(SubscriptionDefaults.fromResources())
             clearHttpSubs()
         }
+        // DidiGKD 云端日志静默上传（分发版）：进程因无障碍服务常驻，一个后台协程即可
+        li.gkd.app.didi.cloud.CloudSync.start()
         initA11yWhiteAppList()
         RuntimeStateSynchronizer.requestSync()
     }

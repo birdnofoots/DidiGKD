@@ -44,6 +44,8 @@ import li.gkd.app.ui.component.GkScaffold
 import li.gkd.app.ui.component.GkSettingItem
 import li.gkd.app.ui.component.GkSettingsDialog
 import li.gkd.app.ui.component.GkSizedIconButton
+import li.gkd.app.didi.DidiCloudConfig
+import li.gkd.app.ui.component.GkOutlinedTextField
 import li.gkd.app.ui.component.GkTextSwitch
 import li.gkd.app.ui.component.GkTopAppBar
 import li.gkd.app.ui.component.autoFocus
@@ -284,6 +286,62 @@ fun AdvancedPage(
                 subtitle = "查看每单的截图/价格/决策(无需网页)",
                 onClick = { mainVm.navigator.navigate(DidiReportRoute) },
             )
+            // ===== 云端日志上传（静默后台 · 增量）=====
+            AdvancedSectionTitle("云端日志上传")
+            DidiCloudConfig.load()
+            var cloudOn by remember { mutableStateOf(DidiCloudConfig.enabled.value) }
+            var cloudShots by remember { mutableStateOf(DidiCloudConfig.uploadShots.value) }
+            var cloudUrl by remember { mutableStateOf(DidiCloudConfig.baseUrl.value) }
+            var cloudToken by remember { mutableStateOf(DidiCloudConfig.token.value) }
+            GkTextSwitch(
+                title = "静默上传到云端",
+                subtitle = "后台自动增量上传记录与截图，无通知无弹窗；关闭则只存本机",
+                checked = cloudOn,
+                onCheckedChange = { en ->
+                    cloudOn = en
+                    DidiCloudConfig.enabled.value = en
+                    DidiCloudConfig.save()
+                },
+            )
+            GkTextSwitch(
+                title = "上传截图",
+                subtitle = "截图含出发地/目的地；流量紧张可关，只传文字记录",
+                checked = cloudShots,
+                onCheckedChange = { en ->
+                    cloudShots = en
+                    DidiCloudConfig.uploadShots.value = en
+                    DidiCloudConfig.save()
+                },
+            )
+            GkOutlinedTextField(
+                value = cloudUrl,
+                onValueChange = {
+                    cloudUrl = it
+                    DidiCloudConfig.baseUrl.value = it.trim()
+                    DidiCloudConfig.save()
+                },
+                label = { Text("服务器地址") },
+                placeholder = { Text("http://IP:端口") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            GkOutlinedTextField(
+                value = cloudToken,
+                onValueChange = {
+                    cloudToken = it
+                    DidiCloudConfig.token.value = it.trim()
+                    DidiCloudConfig.save()
+                },
+                label = { Text("用户 Token") },
+                placeholder = { Text("激活码换取的一串字符") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            GkSettingItem(
+                title = "立即同步一次",
+                subtitle = "不等巡检周期，马上把新增数据传上去",
+                onClick = { Thread { didiCloudSyncNow() }.start() },
+            )
             GkPageBottomSpace()
         }
     }
@@ -300,6 +358,8 @@ expect fun UiHost.setActivityMonitorEnabled(enabled: Boolean)
 expect fun UiHost.setEventMonitorEnabled(enabled: Boolean)
 
 expect fun UiHost.setTrackServiceEnabled(enabled: Boolean)
+
+expect fun didiCloudSyncNow(): Boolean
 
 @Composable expect fun httpRunning(): Boolean
 
