@@ -13,6 +13,7 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
+import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -76,6 +77,45 @@ object CloudSync {
                 }
                 delay(wait)
             }
+        }
+    }
+
+    /**
+     * 用激活码开通：POST /api/v1/activate {code, deviceId} → 拿 token 并保存。
+     * @return 成功返回提示文案，失败返回 "ERR:原因"
+     */
+    fun activate(code: String): String {
+        val base = DidiCloudConfig.baseUrl.value.trim().trimEnd('/')
+        if (base.isEmpty()) return "ERR:请先填服务器地址"
+        val c = code.trim().uppercase()
+        if (c.isEmpty()) return "ERR:请填激活码"
+        val dev = DidiCloudConfig.ensureDeviceId()
+        val body = JSONObject().put("code", c).put("deviceId", dev)
+            .toString().toByteArray(Charsets.UTF_8)
+        val r = try {
+            post("/api/v1/activate", body, "application/json; charset=utf-8")
+        } catch (e: Throwable) {
+            return "ERR:网络异常 ${e.javaClass.simpleName}"
+        }
+        if (r.code !in 200..299) {
+            val msg = try {
+                JSONObject(r.body).optString("error", "HTTP ${r.code}")
+            } catch (e: Exception) {
+                "HTTP ${r.code}"
+            }
+            return "ERR:$msg"
+        }
+        return try {
+            val j = JSONObject(r.body)
+            val tok = j.optString("token")
+            if (tok.isEmpty()) return "ERR:服务器没返回 token"
+            DidiCloudConfig.token.value = tok
+            DidiCloudConfig.save()
+            val reused = j.optInt("reused", 0) == 1
+            Log.i(TAG, "激活成功 uid=${j.optString("uid")} reused=$reused")
+            "OK:已开通${if (reused) "(该设备已绑定, 返回原 Token)" else ""}"
+        } catch (e: Exception) {
+            "ERR:解析响应失败 ${e.message}"
         }
     }
 

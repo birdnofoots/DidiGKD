@@ -337,6 +337,35 @@ fun AdvancedPage(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            // 激活码开通：填码 → 服务端换 Token → 自动保存
+            val scope = rememberCoroutineScope()
+            var cloudCode by remember { mutableStateOf("") }
+            var cloudMsg by remember { mutableStateOf("") }
+            GkOutlinedTextField(
+                value = cloudCode,
+                onValueChange = { cloudCode = it },
+                label = { Text("激活码") },
+                placeholder = { Text("DK-XXXX-XXXX-XXXX") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            GkSettingItem(
+                title = "用激活码开通",
+                subtitle = if (cloudMsg.startsWith("OK")) cloudMsg.removePrefix("OK:")
+                else if (cloudMsg.startsWith("ERR")) "开通失败：" + cloudMsg.removePrefix("ERR:")
+                else "填好激活码后点这里，自动换取 Token 并开始工作",
+                onClick = {
+                    val c = cloudCode
+                    // 网络请求放 IO；回到主线程再改 Compose 状态(直接在后台线程赋值不安全)
+                    scope.launch(Dispatchers.IO) {
+                        val r = didiCloudActivate(c)
+                        withContext(Dispatchers.Main) {
+                            cloudMsg = r
+                            if (r.startsWith("OK")) cloudCode = ""
+                        }
+                    }
+                },
+            )
             GkSettingItem(
                 title = "立即同步一次",
                 subtitle = "不等巡检周期，马上把新增数据传上去",
@@ -360,6 +389,8 @@ expect fun UiHost.setEventMonitorEnabled(enabled: Boolean)
 expect fun UiHost.setTrackServiceEnabled(enabled: Boolean)
 
 expect fun didiCloudSyncNow(): Boolean
+
+expect fun didiCloudActivate(code: String): String
 
 @Composable expect fun httpRunning(): Boolean
 

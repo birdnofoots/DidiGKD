@@ -107,3 +107,7 @@ actual fun UiHost.httpServerPortChanged() = Unit
 
 /** DidiGKD 云端同步手动触发（设置页「立即同步一次」） */
 actual fun didiCloudSyncNow(): Boolean = li.gkd.app.didi.cloud.CloudSync.syncNow()
+
+/** 用激活码开通（设置页） */
+actual fun didiCloudActivate(code: String): String =
+    li.gkd.app.didi.cloud.CloudSync.activate(code)

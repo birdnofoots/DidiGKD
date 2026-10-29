@@ -31,6 +31,11 @@ object DefaultFlow {
 // ==========================================================================
 
 var TH = {
+  // 强休时段（强制休息）—— 优先级最高，先于下面所有规则
+  //   "19+8"  = 19点起休 8 小时 → 到次日 3 点（跨天）
+  //   "19-24,0-3" = 多段；也可写白班 "09-18"
+  // 休息期间：预约单的**出发时间** 或 **当前时间** 任一落在区间内 → 一律不抢
+  restWindows: "19+8",
   minPrice:    80,                      // 低于此价 → 不抢
   grabPrice:   100,                     // 近单：价格高于此
   grabDist:    20,                      // 近单：距我小于此(km)
@@ -38,6 +43,29 @@ var TH = {
   skipKeywords: ['岛', '隧道', '当前位置'],  // 出发地含关键词 → 不抢(假单屏蔽)
   tapOnceMs:   15000                    // 同一张卡点击成功后，多少毫秒内不再点
 };
+
+// ---- 强休时段 ----
+function parseRest(s){
+  var out=[], segs=String(s||"").split(/[,，]+/);
+  for(var i=0;i<segs.length;i++){
+    var t=segs[i].trim(); if(!t) continue;
+    var m=t.match(/^(\d{1,2})\s*\+\s*(\d{1,2})/);      // 19+8
+    if(m){ var a=+m[1], d=+m[2]; if(d>0) out.push([a,(a+d)%48]); continue; }
+    m=t.match(/^(\d{1,2})\s*-\s*(\d{1,2})/);            // 19-24
+    if(m){ var b=+m[2]; if(b>+m[1]) out.push([+m[1],b]); }
+  }
+  return out;
+}
+// h = 小时(可带小数)；段上界可 >24 表示跨到次日，用 h+24 覆盖"昨天的段延伸到今天"
+function inRest(h, ws){
+  if(!(h>=0) || !ws) return false;
+  for(var i=0;i<ws.length;i++){
+    var a=ws[i][0], b=ws[i][1];
+    if(h>=a && h<b) return true;
+    if(h+24>=a && h+24<b) return true;
+  }
+  return false;
+}
 
 // ---- 可选工具：解析"今天18:30 / 明天09:00 / 10月30日18:30" ----
 function timeInfo(t) {
@@ -104,6 +132,19 @@ onCard(function (card) {
   var price = Number(card.price);
   var dist = Number(card.distMe);
   var from = String(card.addrFrom || '');
+
+  // 层R：强休时段 —— 最高优先级，命中即不抢
+  var REST = parseRest(TH.restWindows);
+  if (REST.length) {
+    var ti0 = timeInfo(card.timeText);
+    var depH = ti0.hour >= 0 ? (ti0.hour + ti0.min / 60) : -1;
+    var now = new Date();
+    var nowH = now.getHours() + now.getMinutes() / 60;
+    if (inRest(depH, REST) || inRest(nowH, REST)) {
+      doNoGrab(card, 'rest', 'dep=' + card.timeText + ' now=' + nowH.toFixed(1) + ' 窗口=' + TH.restWindows);
+      return;
+    }
+  }
 
   // 层1：假单屏蔽 —— 出发地关键词
   for (var i = 0; i < TH.skipKeywords.length; i++) {

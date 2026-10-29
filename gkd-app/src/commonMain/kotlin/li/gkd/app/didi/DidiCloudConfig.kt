@@ -22,8 +22,13 @@ object DidiCloudConfig {
     /** 服务器地址，例：http://47.106.242.125:8790 */
     val baseUrl = MutableStateFlow("")
 
-    /** 用户 token（Bearer），同时是报告页地址的一部分 */
+    /** 用户 token（Bearer），同时是报告页地址的一部分。由激活码换取。 */
     val token = MutableStateFlow("")
+
+    /** 设备唯一标识：首次启动生成的随机 UUID，持久化，永不改变。
+     *  ⚠️ 刻意**不用设备串码**(IMEI/AndroidID) —— 那是敏感个人信息，
+     *  收集它需要单独授权且会被应用市场审核卡；随机 UUID 唯一性完全够用。 */
+    val deviceId = MutableStateFlow("")
 
     /** 是否上传截图（截图含出发地/目的地，默认开；流量紧张可关，只传文字记录） */
     val uploadShots = MutableStateFlow(true)
@@ -50,6 +55,7 @@ object DidiCloudConfig {
                     "enabled" -> enabled.value = v == "1"
                     "baseUrl" -> baseUrl.value = v
                     "token" -> token.value = v
+                    "deviceId" -> deviceId.value = v
                     "uploadShots" -> uploadShots.value = v == "1"
                 }
             }
@@ -67,6 +73,7 @@ object DidiCloudConfig {
                 "enabled=" + (if (enabled.value) "1" else "0") + "\n" +
                     "baseUrl=" + baseUrl.value + "\n" +
                     "token=" + token.value + "\n" +
+                    "deviceId=" + deviceId.value + "\n" +
                     "uploadShots=" + (if (uploadShots.value) "1" else "0") + "\n"
             )
         }.onFailure {
@@ -77,4 +84,14 @@ object DidiCloudConfig {
     /** 三项齐备才算可上传 */
     val ready: Boolean
         get() = enabled.value && baseUrl.value.isNotBlank() && token.value.isNotBlank()
+
+    /** 首次调用时生成并持久化 deviceId（UUID v4 风格）。幂等。 */
+    @Synchronized
+    fun ensureDeviceId(): String {
+        if (deviceId.value.isBlank()) {
+            deviceId.value = java.util.UUID.randomUUID().toString()
+            save()
+        }
+        return deviceId.value
+    }
 }

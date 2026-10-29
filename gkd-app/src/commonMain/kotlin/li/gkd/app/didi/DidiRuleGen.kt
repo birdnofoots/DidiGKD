@@ -59,6 +59,17 @@ textarea{width:calc(100% - 24px);margin:12px;height:38vh;background:#12141a;colo
 <div class="gshot"><input type="checkbox" id="gshot" checked> <label style="min-width:auto">截图开关（开=任意层命中都截图；关=都不截图）</label></div>
 
 <div class="ly"><h3><span class="n">1</span>屏蔽垃圾出发地（含任一关键词→动作）</h3>
+<div class="gshot" style="border:1px solid #444;border-radius:8px;padding:10px;margin:10px 0">
+ <b style="color:#fbbf24">强休时段（强制休息 · 优先级最高，先于所有其他规则）</b>
+ <div style="margin:4px 0 8px;color:#888;font-size:12px">
+  写法：<code>19+8</code> = 19点起休8小时 → 到次日3点；或多段 <code>19-24,0-3</code><br>
+  休息期间：<b>预约单出发时间</b> 或 <b>当前时间</b> 任一落在区间内，一律「不抢」。
+ </div>
+ <div class="row"><label>强休时段</label>
+ <input type="text" id="resthr" value="19+8" placeholder="19+8 或 19-24,0-3"></div>
+ <div class="row"><label style="min-width:auto"><input type="checkbox" id="reston" checked> 启用</label>
+ <span style="color:#888;font-size:12px">动作固定为「不抢」</span></div>
+</div>
 <div class="row"><label>关键词</label><input type="text" id="l1kw" value="岛,隧道,当前位置,码头"></div>
 <div class="row"><label>动作</label><select id="l1act"><option value="no_grab">不抢</option><option value="grab">抢</option><option value="pass">跳过</option></select></div></div>
 
@@ -120,6 +131,18 @@ function validate(){
   return {errs:errs,warns:warns};
 }
 
+// 强休时段解析(与生成出的 parseRest 同逻辑, 生成期用来校验格式)
+function parseRestForGen(s){
+  var out=[],segs=String(s||'').split(/[,，]+/);
+  for(var i=0;i<segs.length;i++){
+    var t=segs[i].trim(); if(!t)continue;
+    var m=t.match(/^(\d{1,2})\s*\+\s*(\d{1,2})/);
+    if(m){var a=+m[1],d=+m[2]; if(d>0)out.push([a,(a+d)%48]); continue;}
+    m=t.match(/^(\d{1,2})\s*-\s*(\d{1,2})/);
+    if(m){var a2=+m[1],b2=+m[2]; if(b2>a2)out.push([a2,b2]);}
+  }
+  return out;
+}
 function gen(){
   var v=validate();
   if(v.errs.length){msg('❌ '+v.errs.join('；'),false);return null;}
@@ -131,11 +154,27 @@ function gen(){
   L.push('// 由规则生成器生成 '+new Date().toISOString().slice(0,19).replace('T',' '));
   L.push('function timeInfo(t){var e={day:"",hour:-1,min:-1,month:-1,dom:-1};if(!t)return e;var s=String(t);var m=s.match(/^(今天|明天|后天)[ ]*([0-9]{1,2}):([0-9]{2})/);if(m)return{day:m[1],hour:+m[2],min:+m[3],month:-1,dom:-1};m=s.match(/^([0-9]{1,2})月([0-9]{1,2})日[ ]*([0-9]{1,2}):([0-9]{2})/);if(m)return{day:"",hour:+m[3],min:+m[4],month:+m[1],dom:+m[2]};return e;}');
   L.push('function isToday(ti){if(ti.day==="今天")return true;if(ti.month>0){var n=new Date();return ti.month===(n.getMonth()+1)&&ti.dom===n.getDate();}return false;}');
+  L.push('function parseRest(s){var out=[],segs=String(s||"").split(/[,，]+/);for(var i=0;i<segs.length;i++){var t=segs[i].trim();if(!t)continue;var m=t.match(/^(\\d{1,2})\\s*\\+\\s*(\\d{1,2})/);if(m){var a=+m[1],d=+m[2];if(d>0)out.push([a,(a+d)%48]);continue;}m=t.match(/^(\\d{1,2})\\s*-\\s*(\\d{1,2})/);if(m){var b=+m[2];if(b>+m[1])out.push([+m[1],b]);}}return out;}');
+  L.push('function inRest(h,ws){if(!(h>=0)||!ws)return false;for(var i=0;i<ws.length;i++){var a=ws[i][0],b=ws[i][1];if(h>=a&&h<b)return true;if(h+24>=a&&h+24<b)return true;}return false;}');
   L.push('function grabCheck(card){wait('+Number(V('gwm'))+');var onPage=screenHas("接乘客");var mFrom=!!card.addrFrom&&screenHas(card.addrFrom);var mTo=!!card.addrTo&&screenHas(card.addrTo);if(onPage&&mFrom&&mTo){log("GRAB_OK "+card.timeText+" "+card.addrFrom+" -> "+card.addrTo);screenshot("grab_ok");}else{log("GRAB_MISS onPage="+onPage+" from="+mFrom+" to="+mTo);}}');
   // 抢单"点一次"状态: 同一张卡(出发地|目的地|时间)15秒内只点一次
   L.push('var __g={};');
   L.push('onCard(function(card){');
   L.push('  var ti=timeInfo(card.timeText);var price=Number(card.price);var dist=Number(card.distMe);');
+  var restRaw=String(V('resthr')).trim();
+  if(V('reston')&&restRaw){
+    var restWin=parseRestForGen(restRaw);
+    if(restWin.length){
+      L.push('  var REST='+JSON.stringify(restWin)+';');
+      L.push('  // 层R: 强休时段 '+restRaw+' —— 出发时间或当前时间任一命中即不抢(优先级最高)');
+      L.push('  var __dep=ti.hour>=0?(ti.hour+ti.min/60):-1;');
+      L.push('  var __n=new Date();var __nowH=__n.getHours()+__n.getMinutes()/60;');
+      L.push('  if(inRest(__dep,REST)||inRest(__nowH,REST)){var a="no_grab";screenshot(a);'
+        + 'log("rest dep="+card.timeText+" now="+__nowH.toFixed(1)+" 窗口='+restRaw+'");tap(a);return;}');
+    } else {
+      warn=(warn?warn+';':'')+'强休时段格式没认出来(支持 19+8 或 19-24,0-3)';
+    }
+  }
   var idx=1;
   function emitLayer(cond, action, shot, extra){
     // extra 形如 ' price="+price' (拼进 log 字符串), 无则空串
