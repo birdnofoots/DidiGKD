@@ -81,19 +81,34 @@ object SubscriptionRepository {
                 }
                 val hasLocalRule = localParsed?.hasRule == true
                 val hasLocalRow = items.any { it.id == SubscriptionIds.LOCAL }
-                if (hasLocalRule && hasLocalRow) return@withStateLock
+                if (hasLocalRule && hasLocalRow) {
+                    // 内置规则已就位: 确保订阅本身是启用的。
+                    // 关掉 = 整条链路静默失效(且 S6 已禁止用户自带 didi 规则, 没有备选),
+                    // 所以发行版里强制保持启用。
+                    val row = items.firstOrNull { it.id == SubscriptionIds.LOCAL }
+                    if (row?.enable == false) {
+                        Db.subsItemDao.upsert(row.copy(enable = true))
+                        android.util.Log.i("DidiGKD", "本地订阅被手动关闭过, 已自动重新启用")
+                    }
+                    return@withStateLock
+                }
 
+                // ★enable 必须为 true: SubsItem.enable 默认 false, 新建的本地订阅天生是关的。
+                //   曾因此导致"内置规则装进去了但没启用", 叠加 stripDidiAction 剥掉了用户原本在用的
+                //   URL 订阅规则 → 每张卡都报「规则已不存在」。
                 val item = SubsItem(
                     id = SubscriptionIds.LOCAL,
                     order = items.minByOrNull { it.order }?.order ?: 0,
+                    enable = true,
                 )
                 if (hasLocalRule) {
                     // 已有规则但缺 DB 行 → 只补行
                     Db.subsItemDao.upsert(item)
                     refreshRawSubscriptions(listOf(item))
                 } else {
-                    if (hasLocalRow && localBytes == null) {
-                        Db.subsItemDao.upsert(item)
+                    if (hasLocalRow) {
+                        // 行已存在: 若是这次刚注入规则, 顺手把订阅打开(老用户可能手动关过)
+                        Db.subsItemDao.upsert(item.copy(enable = true))
                     }
                     saveLocked(
                         subscription = BuiltinDidiRule.build(initialName),
