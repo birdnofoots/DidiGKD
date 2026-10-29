@@ -180,7 +180,8 @@ object CloudSync {
         for (n in names.take(SHOTS_PER_CYCLE)) {
             val img = File(capturesDir(), n)
             if (!img.isFile) {
-                uploaded.add(n)             // 截图已被清理，标记处理过，别每轮重扫
+                // 不标记为已传：文件可能只是暂时不可读（写入中/刚被清理），
+                // 标记了就永远补不回来。扫描很便宜，下轮再试即可。
                 continue
             }
             val r = post("/api/v1/shot/" + n, img.readBytes(), "image/jpeg")
