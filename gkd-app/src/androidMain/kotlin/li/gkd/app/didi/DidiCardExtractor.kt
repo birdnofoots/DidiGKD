@@ -59,12 +59,15 @@ object DidiCardExtractor {
         val distMe = kmTexts.mapNotNull { parseKm(it) }.getOrNull(0)
         val distAll = kmTexts.mapNotNull { parseKm(it) }.getOrNull(1)
 
-        // 起终点：address_name 节点按 y 排序，第一个起点第二个终点
+        // 起终点：address_name 节点按 y 排序，最上=出发地，最下=目的地
+        // ⚠️ 不能取 [0]/[1]：实测 252 张真实卡片里有 **5 张出现 3 个 address_name**
+        //    (同层级 d17, y 等距 99px)，取前两个就会把途经点当成目的地。
+        //    改成 first()/last() 后，2 个或 3 个都正确。
         val addrs = findAllByVid(frag, "address_name")
             .sortedBy { topOf(it) }
             .mapNotNull { it.text?.toString()?.trim()?.takeIf { s -> s.isNotEmpty() } }
-        val addrFrom = addrs.getOrNull(0)
-        val addrTo = addrs.getOrNull(1)
+        val addrFrom = addrs.firstOrNull()
+        val addrTo = addrs.lastOrNull()
 
         val tagText = headNode?.text?.toString()
         val hasLeftBtn = findByVid(frag, VID_LEFT_BTN) != null
